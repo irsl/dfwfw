@@ -783,7 +783,8 @@ sub build_docker {
      next if($net->{'Driver'} ne "bridge");
 
      $net->{'IdShort'} = substr($net->{'Id'}, 0, 12);
-     $net->{'BridgeName'} = "br-".$net->{'IdShort'};
+     $net->{'BridgeName'} = $net->{'Options'}->{"com.docker.network.bridge.name"} ? $net->{'Options'}->{"com.docker.network.bridge.name"} : "br-".$net->{'IdShort'};
+
 
      %{$net->{'ContainerList'}} = ();
      for my $cid (keys %{$net->{'Containers'}}) {
