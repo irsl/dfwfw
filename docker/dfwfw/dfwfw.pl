@@ -70,12 +70,14 @@ sub dfwfw_already_initiated {
 
 sub dfwfw_rules_head {
   my $cat = shift;
+  my $stateful = shift;
+
   my $re = "################ $cat head:
 -F $cat
 ";
 $re.= "-A $cat -m state --state INVALID -j DROP
 -A $cat -m state --state RELATED,ESTABLISHED -j ACCEPT
-" if($cat ne "DFWFW_PREROUTING");
+" if($stateful);
 
   $re .= "\n";
 
@@ -118,6 +120,8 @@ EOF
      iptables_commit("nat", <<"EOF");
 :DFWFW_POSTROUTING - [0:0]
 -I POSTROUTING -j DFWFW_POSTROUTING
+-F DFWFW_POSTROUTING
+-I DFWFW_POSTROUTING -o $dfwfw_conf->{'external_network_interface'} -j MASQUERADE
 EOF
 
    }
@@ -134,27 +138,13 @@ EOF
    }
 
 
-   mylog("Flushing DFWFW filter chains");
-   my $flush_rules = "";
-   for my $c ("DFWFW_FORWARD", "DFWFW_INPUT") {
-      $flush_rules .= dfwfw_rules_head($c).dfwfw_rules_tail($c);
-   }
-   iptables_commit("filter", $flush_rules);
-
-   mylog("Flushing DFWFW nat chains");
-   iptables_commit("nat", <<"EOF");
--F DFWFW_PREROUTING
--F DFWFW_POSTROUTING
--I DFWFW_POSTROUTING -o $dfwfw_conf->{'external_network_interface'} -j MASQUERADE
-EOF
-
 }
 
 
 sub event_cb {
    my $d = shift;
 
-   return if($d->{'status'} !~ /^(start|destroy)$/);
+   return if($d->{'status'} !~ /^(start|die)$/);
 
    mylog("Docker event: $d->{'status'} of $d->{'from'}");
    build_docker();
@@ -495,8 +485,10 @@ sub build_firewall_ruleset {
 
   my %rules;
 
-  $rules{'filter'} = dfwfw_rules_head("DFWFW_FORWARD");
-  $rules{'nat'} = dfwfw_rules_head("DFWFW_PREROUTING");
+  $rules{'filter'}  = dfwfw_rules_head("DFWFW_FORWARD", 1);
+  $rules{'filter'} .= dfwfw_rules_head("DFWFW_INPUT");
+
+  $rules{'nat'}     = dfwfw_rules_head("DFWFW_PREROUTING");
 
   build_firewall_rules_category("container_to_container", \&build_container_to_container_rule_network, \%rules);
   build_firewall_rules_category("container_to_wider_world", \&build_container_to_wider_world_rule_network, \%rules);
