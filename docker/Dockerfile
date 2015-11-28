@@ -13,4 +13,4 @@ RUN apt-get update && \
 
 ADD dfwfw /opt/dfwfw/
 
-ENTRYPOINT /opt/dfwfw/dfwfw.pl
+ENTRYPOINT ["/opt/dfwfw/dfwfw.pl"]
