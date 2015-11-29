@@ -9,6 +9,7 @@ use JSON::XS;
 use File::Slurp;
 use constant IPTABLES_TMP_FILE => "/tmp/dfwfw";
 use constant DFWFW_CONFIG => "/etc/dfwfw.conf";
+use constant IPTABLES_TABLES => ["filter","raw","nat","mangle","security"];
 use Getopt::Long;
 use experimental 'smartmatch';
 
@@ -50,17 +51,23 @@ local $SIG{ALRM} = sub {
 };
 local $SIG{HUP} = sub {
   mylog("Received HUP signal, rebuilding everything");
-  build_dfwfw_conf();
-  build_docker();
+  on_hup();
   build_firewall_ruleset();
 };
 
-build_dfwfw_conf();
-build_docker();
+
+on_hup();
 
 init_dfwfw_rules();
 
 monitor_changes();
+
+sub on_hup {
+  build_dfwfw_conf();
+  build_docker();
+  init_user_rules();
+}
+
 
 sub dfwfw_already_initiated {
    my $chain = shift;
@@ -94,7 +101,23 @@ sub dfwfw_rules_tail {
 ";
 }
 
+sub init_user_rules {
+  return if(!$dfwfw_conf->{'initialization'});
+
+  for my $table (keys %{$dfwfw_conf->{'initialization'}}) {
+      validate_table($table);
+
+      my $rules = "";
+      for my $l (@{$dfwfw_conf->{'initialization'}->{$table}}) {
+         $rules .= "$l\n";
+      }
+      iptables_commit($table, $rules);
+  }
+}
+
 sub init_dfwfw_rules {
+
+
    if (!dfwfw_already_initiated("DFWFW_FORWARD")) {
      mylog("DFWFW_FORWARD chain not found, initializing");
 
@@ -675,7 +698,11 @@ sub build_dfwfw_conf_rule_category {
 
 }
 
+sub validate_table {
+  my $table = shift;
 
+  die "Invalid table" if(!($table ~~ IPTABLES_TABLES));
+}
 
 
 sub build_dfwfw_conf_container_internals {
@@ -697,7 +724,7 @@ sub build_dfwfw_conf_container_internals {
            die "Container not specified" if(!parse_container_ref($node, "container"));
            $node->{'table'}="filter" if(!$node->{'table'});
 
-           die "Invalid table" if($node->{'table'} !~ /^(nat|filter|raw|mangle)$/);
+           validate_table($node->{'table'});
 
            die "No rules specified" if(!$node->{'rules'});
            my $t = ref($node->{'rules'});

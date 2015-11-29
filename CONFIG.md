@@ -4,11 +4,62 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
 
  - docker_socket: Specification of the Docker socket. Default value is `http:/var/run/docker.sock/`. (Note the trailing slash! [Details][AltSocket])
  - external_network_interface: Name of the network interface with the default gateway. Default is `eth0`.
+ - initialization: Initial firewall rules for the host.
  - container_to_container: Container to container firewall rules
  - container_to_wider_world: Container to wider world rules
  - container_to_host: Container to host rules
  - wider_world_to_container: Wider world to container rules
  - container_internals: Container internal rules
+
+### initialization
+
+The initialization key takes JSON hashes of the supported netfilter tables. Their values are JSON arrays with the actual
+firewall rules you want to have as your initial configuration. Upon startup, DFWFW commits these rules to netfilter.
+
+If you create the DFWFW_INPUT/DFWFW_FORWARD/etc. chains and also rules jumping to them, then DFWFW won't create them by
+itself (which is the default behavior).
+
+For example, a useful set of initial rules would look like this:
+
+```
+   "initialization": {
+      "filter": [
+         ":DFWFW_INPUT - [0:0]",
+         ":HOST_OUTBOUND - [0:0]",
+         ":HOST_INCOMING - [0:0]",
+
+         "-P INPUT DROP",
+         "-F INPUT",
+         "-A INPUT -m state --state INVALID -j DROP",
+         "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+         "-A INPUT -j DFWFW_INPUT",
+         "-A INPUT -m state --state NEW -j HOST_INCOMING",
+
+         "-F HOST_INCOMING",
+         "-A HOST_INCOMING -p tcp --dport 22 -j ACCEPT",
+         "-A HOST_INCOMING -p icmp -j ACCEPT",
+
+         "-P OUTPUT DROP",
+         "-F OUTPUT",
+         "-A OUTPUT -m state --state INVALID -j DROP",
+         "-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+         "-A OUTPUT -m state --state NEW -j HOST_OUTBOUND",
+
+         "-F HOST_OUTBOUND",
+         "-A HOST_OUTBOUND -p udp --dport 53 -j ACCEPT",
+         "-A HOST_OUTBOUND -p tcp --dport 80 -j ACCEPT",
+         "-A HOST_OUTBOUND -p tcp --dport 443 -j ACCEPT",
+         "-A HOST_OUTBOUND -p icmp -j ACCEPT",
+
+         "-P FORWARD DROP"
+      ]
+   },
+```
+
+In this example, we created and thus specified the location of DFWFW_INPUT chain among the INPUT chain rules.
+We did not touch the DFWFW_FORWARD chain, letting DFWFW create it upon startup.
+Note, that we did not open additional ports on HOST_INCOMING, since we intend to run only the SSH service on the host,
+all other services would be dockerized, their firewall rules are covered in the `wider_world_to_container` section.
 
 ### container_to_container
 
