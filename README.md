@@ -79,7 +79,14 @@ docker run \
 
 See the dedicated [page][config_file] about the configuration file and the [other][examples] with examples.
 
-### Others
+### Command line options and signals
+
+DFWFW supports the following command line switches:
+
+ - `--dry-run`: No changes are commited to netfilter, they are just displayed 
+   (the same way as without this option)
+ - `--one-shot`: Events are not monitored, current containers are queried from the Dcoker daemon, 
+   rules are generated and then the application terminates
 
 You can see whats happening by attaching to the container (or starting it in an interactive container):
 
@@ -96,7 +103,7 @@ The software is free for any purposes, but no responsibility.
 
 ### TODO
 
-   - Testing
+   - Testing, test harness
    - Support for logging to file
    - Head/tail hooks for initializing additional custom rules
    - IPv6 support
