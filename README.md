@@ -6,7 +6,7 @@ DFWFW focuses mostly on the firewall rules of the "main bridge" itself, but it s
 
 DFWFW supports having different firewall rules for buildtime containers (`docker build`) and production ones (`docker run`). The rule specification is straight-forward, you can easily target the containers by simply specifying their names or a matching regular expression. The generated firewall ruleset relies on stateful support of iptables.
 
-By default, a white-list based approach is recommended: the default policy drops everything and you can accepts the wanted traffic by setting up white-list based firewall rules. Rules can be specified in the following five categories:
+By default, a white-list based approach is recommended: the default policy drops everything and you can accept the wanted traffic by setting up white-list based firewall rules. Rules can be specified in the following five categories:
 
    - container_to_container
    - container_to_wider_world
