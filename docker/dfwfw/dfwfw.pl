@@ -397,13 +397,20 @@ sub build_wider_world_to_container_rule_network {
         for my $port (@{$container_by_ip->{$d}->{'Ports'}}) {
             my %a;
 
-            $a{'container_port'} = $port->{'PrivatePort'};
-            $a{'host_port'} = $port->{'PublicPort'};
-            $a{'family'} = $port->{'Type'};
+            eval {
+              die "No private port exposed?!" if(!$port->{'PrivatePort'});
+              $port->{'Type'} = "tcp" if(!$port->{'Type'});
 
-            warn "Autoconfiguration of IP specific exposed ports are not yet implemented" if($port->{'IP'} ne "0.0.0.0");
+              $a{'container_port'} = $port->{'PrivatePort'};
+              $a{'host_port'} = $port->{'PublicPort'} ? $port->{'PublicPort'} : $port->{'PrivatePort'};
+              $a{'family'} = $port->{'Type'};
 
-            push @e, \%a;
+              die "Autoconfiguration of IP specific exposed ports are not yet implemented" if(($port->{'IP'})&&($port->{'IP'} ne "0.0.0.0"));
+
+              push @e, \%a;
+
+            };
+            warn $@ if($@);
         }
         $expose = \@e;
 
