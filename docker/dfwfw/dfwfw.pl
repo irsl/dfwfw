@@ -43,7 +43,10 @@ my $network_by_name;
 my $network_by_id;
 my $network_by_bridge;
 
-
+local $SIG{TERM} = sub {
+  mylog("Received term signal, exiting");
+  exit;
+};
 local $SIG{ALRM} = sub {
   mylog("Received alarm signal, rebuilding Docker configuration");
   ### Networks by name before: $network_by_name
@@ -51,7 +54,7 @@ local $SIG{ALRM} = sub {
 };
 local $SIG{HUP} = sub {
   mylog("Received HUP signal, rebuilding everything");
-  on_hup();
+  return if(!on_hup(1));
   build_firewall_ruleset();
 };
 
@@ -63,9 +66,14 @@ init_dfwfw_rules();
 monitor_changes();
 
 sub on_hup {
-  build_dfwfw_conf();
+  my $safe = shift;
+
+  return if(!build_dfwfw_conf($safe));
+
   build_docker();
   init_user_rules();
+
+  return 1;
 }
 
 
@@ -753,26 +761,41 @@ sub build_dfwfw_conf_container_internals {
 
 
 sub build_dfwfw_conf {
-  mylog("Parsing ruleset configuration file ".DFWFW_CONFIG);
-  my $contents = read_file(DFWFW_CONFIG);
-  # strip out comments:
-  $contents =~ s/#.*//g;
-  $dfwfw_conf = decode_json($contents);
+  my $safe = shift;
 
-  for my $k (keys %$dfwfw_conf) {
-     warn "Unknown node in dfwfw.conf: $k" if($k !~ /^(docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_internal)$/);
+  my $orig_dfwfw_conf = $dfwfw_conf; # saving the original configuration
+  eval {
+    mylog("Parsing ruleset configuration file ".DFWFW_CONFIG);
+    my $contents = read_file(DFWFW_CONFIG);
+    # strip out comments:
+    $contents =~ s/#.*//g;
+    $dfwfw_conf = decode_json($contents);
+
+    for my $k (keys %$dfwfw_conf) {
+       warn "Unknown node in dfwfw.conf: $k" if($k !~ /^(docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_internal)$/);
+    }
+
+    $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});
+
+    build_dfwfw_conf_rule_category("container_to_container",   undef, "action","src_container", "dst_container");
+    build_dfwfw_conf_rule_category("container_to_wider_world", undef, "action","src_container");
+    build_dfwfw_conf_rule_category("container_to_host",        "DROP","action","src_container");
+
+    build_dfwfw_conf_rule_category("wider_world_to_container", "-",   "expose_port", "dst_container");
+
+    build_dfwfw_conf_container_internals();
+  };
+  if($@) {
+     if($safe) {
+         print "Syntax error in configuration file:\n$@\n\nReverting to original config and not proceeding to firewall ruleset rebuild\n";
+         $dfwfw_conf = $orig_dfwfw_conf;
+         return 0;
+     }
+
+     die $@;
   }
 
-  $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});
-
-  build_dfwfw_conf_rule_category("container_to_container",   undef, "action","src_container", "dst_container");
-  build_dfwfw_conf_rule_category("container_to_wider_world", undef, "action","src_container");
-  build_dfwfw_conf_rule_category("container_to_host",        "DROP","action","src_container");
-
-  build_dfwfw_conf_rule_category("wider_world_to_container", "-",   "expose_port", "dst_container");
-
-  build_dfwfw_conf_container_internals();
-
+  return 1;
 }
 
 sub build_docker {
