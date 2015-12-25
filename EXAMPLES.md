@@ -106,4 +106,105 @@ Chain DFWFW_FORWARD (1 references)
 ```
 
 
-More examples are coming.
+### Example #4
+
+This one is a more complex one.
+It routes web requests of banned clients (marked in the BAN_* chains of the mangle table) to the fcgi-tests-banned container.
+Other (non-web) connections by these banned clients would be dropped.
+HTTP connections from the IP address 10.6.6.205 are routed to fcgi-tests-experimental container.
+Other HTTP connections go to the (generic) nginx container.
+Otherwise the firewall is stateful and only SSH is accepted from the outside to the host.
+
+```
+{
+
+   "initialization": {
+      "filter": [
+         ":DFWFW_INPUT - [0:0]",
+         ":HOST_OUTBOUND - [0:0]",
+         ":HOST_INCOMING - [0:0]",
+
+         "-P INPUT DROP",
+         "-F INPUT",
+         "-A INPUT -m state --state INVALID -j DROP",
+         "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+         "-A INPUT -j DFWFW_INPUT",
+         "-A INPUT -m state --state NEW -j HOST_INCOMING",
+
+         "-F HOST_INCOMING",
+         "-A HOST_INCOMING -p tcp --dport 22 -j ACCEPT",
+         "-A HOST_INCOMING -p icmp -j ACCEPT",
+
+         "-P OUTPUT DROP",
+         "-F OUTPUT",
+         "-A OUTPUT -m state --state INVALID -j DROP",
+         "-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+         "-A OUTPUT -m state --state NEW -j HOST_OUTBOUND",
+
+         "-F HOST_OUTBOUND",
+         "-A HOST_OUTBOUND -p udp --dport 53 -j ACCEPT",
+         "-A HOST_OUTBOUND -p tcp --dport 80 -j ACCEPT",
+         "-A HOST_OUTBOUND -p tcp --dport 443 -j ACCEPT",
+         "-A HOST_OUTBOUND -p icmp -j ACCEPT",
+
+         "-P FORWARD DROP"
+      ],
+      "mangle": [
+         ":BAN_HTTP - [0:0]",
+         ":BAN_FTP - [0:0]",
+         ":BAN_SMTP - [0:0]",
+
+         "-F PREROUTING",
+         "-A PREROUTING -i eth0 -j BAN_HTTP",
+         "-A PREROUTING -i eth0 -m mark ! --mark 0x01 -j BAN_SMTP"
+      ]
+   },
+
+   "container_to_container": {
+       "default_policy": "ACCEPT"
+   },
+   "container_to_wider_world": {
+       "default_policy": "ACCEPT"
+   },
+
+   "container_to_host": {
+       "default_policy": "ACCEPT"
+   },
+
+   "wider_world_to_container": {
+       "rules": [
+          {
+             "network": "bridge",
+             "dst_container": "fcgi-tests-banned",
+             "filter": "-m mark --mark 0x1",
+             "expose_port": 80
+          },
+          {
+             "network": "bridge",
+             "dst_container": "fcgi-tests-experimental",
+             "filter": "-s 10.6.6.205",
+             "expose_port": 80
+          },
+          {
+             "network": "bridge",
+             "dst_container": "fcgi-tests",
+             "filter": "-m mark ! --mark 0x1",
+             "expose_port": 80
+          },
+          {
+             "network": "bridge",
+             "dst_container": "Name =~ nginx",
+             "expose_port": 80
+          }
+       ]
+   }
+
+
+}
+```
+
+
+### Example #5
+
+More examples might be coming in case of any interest.
+
