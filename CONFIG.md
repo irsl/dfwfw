@@ -9,6 +9,7 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
  - container_to_wider_world: Container to wider world rules
  - container_to_host: Container to host rules
  - wider_world_to_container: Wider world to container rules
+ - container_dnat: DNAT rules for containers (TODO)
  - container_internals: Container internal rules
  - container_aliases: Container aliases
 
@@ -75,6 +76,7 @@ The following keys can be specified inside `container_to_container_rule_definiti
  - network: see `network_definition`
  - src_container: optional, see `container_definition`
  - dst_container: optional, see `container_definition`
+ - src_dst_container: optional, but exclusive to src and dst_container. see `container_src_dst_definition`
  - filter: optional string, additional iptables filters like `-p tcp --dport 25`
  - action: see `action_definition`
 
@@ -108,7 +110,11 @@ The following keys can be specified inside `container_to_wider_world_rule_defini
  - action: see `action` definition
 
 ### wider_world_to_container
-Using wider_world_to_container rules you can make services running inside your containers accessible from the outside world. DFWFW configures DNAT rules in the background according to the configuration.
+
+Using wider_world_to_container rules you can make services running inside your containers accessible from the outside world.
+In case of IPv4, DFWFW configures DNAT rules in the background according to the configuration and also 
+forward rules accepting the same ports.
+In case of IPv6, DFWFW configures forward rules accepting the specified ports (TODO).
 
 The following keys can be specified inside `container_to_host`:
  - rules: array of `wider_world_to_container_rule_definition`
@@ -120,7 +126,8 @@ The following keys can be specified inside `wider_world_to_container_rule_defini
 
 ### container_internals
 
-Using container_internals you can inject iptables rules into your containers for additional security. DFWFW needs access to the host process namespace and also `SYS_ADMIN` capability to be able to do this.
+Using container_internals you can inject iptables rules into your containers for additional security. 
+DFWFW needs access to the host process namespace and also `SYS_ADMIN` capability to be able to do this.
 
 The following keys can be specified inside `container_internals`:
  - rules: array of `container_internals_rule_definition`
@@ -196,6 +203,37 @@ The expression components:
 An example:
 ```
 "container": "Name =~ ^php-\\d+"
+```
+
+### container_src_dst_definition       
+
+This definition was introduced in order to make work easier with backreferences in regular expressions.
+The same keys and same operators can be used, but the value for actual test would be a pair of containers of the specified network.
+In case of a match, the two containers are treated as src and dst containers.
+
+For the comparision a delimiter string of `=>` is inserted between the two names.
+
+For example the following two definitions are the same:
+
+```
+# rule #1:
+{
+"src_dst_container": "nginx=>apache"
+}
+
+# rule #2:
+{
+  "src_container": "nginx",
+  "dst_container": "apache"
+}
+```
+
+As mentioned above, the same key and operators can be used as with regular container definitions.
+In the following example DFWFW would run a regular expression based test and match the traffic between containers called
+`nginx` and `mono`:
+
+```
+"src_dst_container": "Name =~ (\\w)ginx=>mo\\g1o"
 ```
 
 ### expose_port_definition

@@ -206,34 +206,14 @@ sub monitor_changes {
    $api->events(\&event_cb);
 }
 
-sub build_container_to_container_rule_network {
+sub build_container_to_container_rule_network_src_dst {
   my $rule = shift;
   my $network = shift;
   my $re = shift;
+  my $s = shift;
+  my $d = shift;
 
-  ### c2c rule network: $rule->{'no'}
 
-  my $src = [""];
-  if($rule->{'src_container-ref'}) {
-     $src = filter_hash_by_ref($rule->{'src_container-ref'}, $network->{'ContainerList'});
-     if(!scalar @$src) {
-        mylog("Container to container: src_container of rule #$rule->{'no'} does not match any containers, skipping rule");
-        return "" ;
-     }
-
-  }
-
-  my $dst = [""];
-  if($rule->{'dst_container-ref'}) {
-     $dst = filter_hash_by_ref($rule->{'dst_container-ref'}, $network->{'ContainerList'});
-     if(!scalar @$dst) {
-        mylog("Container to container: dst_container of rule #$rule->{'no'} does not match any containers, skipping rule");
-        return ;
-     }
-  }
-
-  for my $s (@$src) {
-     for my $d (@$dst) {
          my $sstr = ($s ? "-s $s" : "");
          my $sstrcomment = ($s ? "from:".$container_by_ip->{$s}->{'Name'} : "");
          my $dstr = ($d ? "-d $d" : "");
@@ -243,10 +223,85 @@ sub build_container_to_container_rule_network {
             $re->{'filter'} .= "# #$rule->{'no'}: $sstrcomment $dstrcomment\n";
          }
          $re->{'filter'} .= "-A DFWFW_FORWARD -i $network->{'BridgeName'} -o $network->{'BridgeName'} $sstr $dstr $rule->{'filter'} -j $rule->{'action'}\n";
-     }
+}
+
+sub build_container_to_container_rule_network {
+  my $rule = shift;
+  my $network = shift;
+  my $re = shift;
+
+  ### c2c rule network: $rule->{'no'}
+
+  if(!$rule->{'src_dst_container'}) {
+    my $src = [""];
+    if($rule->{'src_container-ref'}) {
+      $src = filter_hash_by_ref($rule->{'src_container-ref'}, $network->{'ContainerList'});
+      if(!scalar @$src) {
+         mylog("Container to container: src_container of rule #$rule->{'no'} does not match any containers, skipping rule");
+         return ;
+      }
+
+    }
+
+    my $dst = [""];
+    if($rule->{'dst_container-ref'}) {
+       $dst = filter_hash_by_ref($rule->{'dst_container-ref'}, $network->{'ContainerList'});
+       if(!scalar @$dst) {
+          mylog("Container to container: dst_container of rule #$rule->{'no'} does not match any containers, skipping rule");
+          return ;
+       }
+    }
+
+    for my $s (@$src) {
+       for my $d (@$dst) {
+         build_container_to_container_rule_network_src_dst($rule, $network, $re, $s, $d);
+
+       }
+    }
+
+  } else {
+      my $src_dst_pairs = filter_hash_by_sd_ref($rule->{'src_dst_container-ref'}, $network->{'ContainerList'});
+      #print Dumper($src_dst_pairs);exit;
+      if(!scalar @$src_dst_pairs) {
+         mylog("Container to container: src_dst_container of rule #$rule->{'no'} does not match any containers, skipping rule");
+         return ;
+      }
+      for my $pair (@$src_dst_pairs) {
+          build_container_to_container_rule_network_src_dst($rule, $network, $re, $pair->{'src'}, $pair->{'dst'});
+      }
+
   }
 
 }
+
+
+
+
+sub match_sd {
+  my ($ref, $node1, $node2) = @_;
+
+  my $value1 = $node1->{ $ref->{'field'} };
+  if(!defined($value1)){
+     # this might be possible when a (dead) container is not yet detached from a network
+
+     ### $ref->{'field'} not defined in: $node1
+     return;
+  }
+
+  my $value2 = $node2->{ $ref->{'field'} };
+  if(!defined($value2)){
+     # this might be possible when a (dead) container is not yet detached from a network
+
+     ### $ref->{'field'} not defined in: $node2
+     return;
+  }
+
+  #print "matching $value1 => $value2 vs $ref->{'value'}\n";
+
+  return 1 if($ref->{'opcb'}($value1."=>".$value2, $ref->{'value'}));
+
+}
+
 
 sub match {
   my ($ref, $node) = @_;
@@ -300,6 +355,30 @@ sub filter_hash_by_ref {
 
   return \@re;
 }
+
+
+sub filter_hash_by_sd_ref {
+  my $ref = shift;
+  my $list = shift;
+
+  my @re;
+  for my $key1 (keys %$list) {
+    for my $key2 (keys %$list) {
+      next if($key1 eq $key2);
+
+      my $field = $ref->{'field'};
+      ### matching hash sd by ref: $key1
+      ### matching hash sd by ref: $key2
+      ###  for: $field
+      next if(!match_sd($ref, $list->{$key1}, $list->{$key2}));
+
+      push @re, {src=> $key1, dst=> $key2};
+    }
+  }
+
+  return \@re;
+}
+
 
 sub filter_hash_by_name {
   my $name = shift;
@@ -386,10 +465,10 @@ sub build_wider_world_to_container_rule_network_container_expose {
    for my $ep (@$expose) {
        my $cmnt = "# #$rule->{'no'}: host:$ep->{'host_port'} -> $cname:$ep->{'container_port'} / $ep->{'family'}\n";
        $re->{'nat'} .= $cmnt;
-       $re->{'nat'} .= "-A DFWFW_PREROUTING -i $dfwfw_conf->{'external_network_interface'} -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
+       $re->{'nat'} .= "-A DFWFW_PREROUTING -i $rule->{'input_network_interface'} -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
 
        $re->{'filter'} .= $cmnt;
-       $re->{'filter'} .= "-A DFWFW_FORWARD -i $dfwfw_conf->{'external_network_interface'} -o $network->{'BridgeName'} -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
+       $re->{'filter'} .= "-A DFWFW_FORWARD -i $rule->{'input_network_interface'} -o $network->{'BridgeName'} -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
    }
 
 }

@@ -198,8 +198,18 @@ Otherwise the firewall is stateful and only SSH is accepted from the outside to 
 }
 ```
 
-
 ### Example #5
+
+Perl backrefs can be used in src_dst_container rules, for example:
+
+```
+"src_dst_container": "Name =~ nginx-(\\d+)=>fcgi-\\g1"
+```
+
+Note the double quotes of the `\d` which is due to the JSON parsing layer.
+
+
+### Example #6
 
 More examples might be coming in case of any interest.
 

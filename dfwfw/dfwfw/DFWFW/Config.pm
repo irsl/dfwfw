@@ -67,6 +67,15 @@ sub _action_test {
   die "Invalid action" if((!$node->{$field})||($node->{$field} !~ /^(ACCEPT|DROP|REJECT|LOG)$/));
 }
 
+sub _parse_input_interface {
+  my $dfwfw_conf = shift;
+  my $node = shift;
+
+  $node->{'input_network_interface'} = $dfwfw_conf->{'external_network_interface'} if(!$node->{'input_network_interface'});
+
+}
+
+
 sub _filter_test {
   my $dfwfw_conf = shift;
   my $node = shift;
@@ -167,10 +176,17 @@ sub _parse_dfwfw_conf_rule_category {
                  $dfwfw_conf->parse_container_ref($node, $extra);
               }elsif($extra eq "expose_port") {
                  $dfwfw_conf->_parse_expose_port($node);
+              }elsif($extra eq "input_network_interface") {
+                 $dfwfw_conf->_parse_input_interface($node);
               } else {
                  die "No parsing handler for: $extra";
               }
            }
+
+           if(($node->{"src_dst_container"})&&(($node->{"src_container"})||($node->{"dst_container"}))) {
+              die "Next to src_dst_container no src nor dst_container nodes can be present";
+           }
+
 
         $node->{'no'} = ++$rno;
      }
@@ -269,11 +285,11 @@ sub new {
 
     $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});
 
-    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_container",   undef, "action","src_container", "dst_container");
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_container",   undef, "action","src_container", "dst_container", "src_dst_container");
     $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_wider_world", undef, "action","src_container");
     $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_host",        "DROP","action","src_container");
 
-    $dfwfw_conf->_parse_dfwfw_conf_rule_category("wider_world_to_container", "-",   "expose_port", "dst_container");
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("wider_world_to_container", "-", "input_network_interface",  "expose_port", "dst_container");
 
     $dfwfw_conf->_parse_dfwfw_conf_container_internals();
 
