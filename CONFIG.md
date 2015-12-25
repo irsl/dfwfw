@@ -10,6 +10,7 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
  - container_to_host: Container to host rules
  - wider_world_to_container: Wider world to container rules
  - container_internals: Container internal rules
+ - container_aliases: Container aliases
 
 ### initialization
 
@@ -118,6 +119,7 @@ The following keys can be specified inside `wider_world_to_container_rule_defini
  - expose_port: optional, see `expose_port_definition`
 
 ### container_internals
+
 Using container_internals you can inject iptables rules into your containers for additional security. DFWFW needs access to the host process namespace and also `SYS_ADMIN` capability to be able to do this.
 
 The following keys can be specified inside `container_internals`:
@@ -127,6 +129,28 @@ The following keys can be specified inside `container_internals_rule_definition`
  - container: see `container_definition`
  - table: optional, see `table` definition, default is `filter`
  - rules: see `container_internals_iptables_rule_definition`
+
+
+
+### container_aliases
+
+By using the container_alias feature you can instruct DFWFW to maintane fixed host name aliases for your containers.
+This might be useful if you append some version information to your container names but you still want them to be discovered 
+via a fixed alias. (For example you want the container `some-nginx-199` to be reachable via the `nginx` host alias
+from other containers of the same network.)
+
+The following keys can be specified inside `container_internals`:
+ - rules: array of `container_alias_rule_definition`
+
+The following keys can be specified inside `container_alias_rule_definition`:
+
+ - aliased_container: see `container_definition`. E.g. Name =~ .*nginx.*
+ - alias_name: JSON string of the wanted alias (e.g. `my.nginx.alias`)
+ - receiver_network: see `network_definition`
+ - receiver_containers: see `container_definition`
+
+Hosts file in containers matching `receiver_network` + `receiver_containers`
+will be updated to have `alias_name` pointing to `aliased_container`.
 
 ### network_definition
 

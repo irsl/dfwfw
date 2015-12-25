@@ -14,6 +14,8 @@ By default, a white-list based approach is recommended: the default policy drops
    - wider_world_to_container
    - container_internals
 
+Container aliasing is also supported; DFWFW is able to maintane some entries in /etc/hosts files of your containers with the desired aliases.
+
 DFWFW was written and tested against Docker 1.9.0.
 
 DFWFW is currently experimental, feedback and contributions are welcome.
@@ -72,6 +74,22 @@ docker run \
   --cap-add=NET_ADMIN \
   --pid=host \
   --cap-add=SYS_ADMIN \
+  dfwfw
+```
+
+Additional prerequisites for container aliasing:
+
+   -  Access to the container directory of Docker
+
+Example command:
+```
+docker run \
+  --name=dfwfw -d \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/lib/docker/containers:/var/lib/docker/containers \
+  -v /path/to/your/dfwfw.conf:/etc/dfwfw.conf \
+  --net=host \
+  --cap-add=NET_ADMIN \
   dfwfw
 ```
 

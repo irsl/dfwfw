@@ -6,17 +6,15 @@ use autodie;
 use Data::Dumper;
 use FindBin qw($Bin);
 use JSON::XS;
-use File::Slurp;
-use constant IPTABLES_TMP_FILE => "/tmp/dfwfw";
-use constant DFWFW_CONFIG => "/etc/dfwfw.conf";
-use constant IPTABLES_TABLES => ["filter","raw","nat","mangle","security"];
 use Getopt::Long;
-use experimental 'smartmatch';
 
 BEGIN {
  push @INC, "$Bin";
 }
 use WebService::Docker;
+use Config::HostsFile;
+use DFWFW::Config;
+use DFWFW::Iptables;
 
 local $| = 1;
 
@@ -28,13 +26,9 @@ my ($c_dry_run, $c_one_shot) = (0, 0);
   or die("Usage: $0 [--dry-run] [--one-shot]");
 
 
-my %operators = (
-  "==" => { "cmp"=> sub { return shift eq shift; }, "build"=> sub { return shift; } },
-  "!~" => { "cmp"=> sub { return shift !~ shift; }, "build"=> sub { my $x = shift; return qr/$x/; } },
-  "=~" => { "cmp"=> sub { return shift =~ shift; }, "build"=> sub { my $x = shift; return qr/$x/; } },
-);
-
 my $dfwfw_conf;
+my $iptables = new DFWFW::Iptables(\&mylog, $c_dry_run);
+
 my $container_by_ip;
 my $container_by_id;
 my $container_by_name;
@@ -50,12 +44,13 @@ local $SIG{TERM} = sub {
 local $SIG{ALRM} = sub {
   mylog("Received alarm signal, rebuilding Docker configuration");
   ### Networks by name before: $network_by_name
-  build_docker();
+  fetch_docker_configuration();
 };
 local $SIG{HUP} = sub {
   mylog("Received HUP signal, rebuilding everything");
   return if(!on_hup(1));
-  build_firewall_ruleset();
+
+  rebuild();
 };
 
 
@@ -68,14 +63,26 @@ monitor_changes();
 sub on_hup {
   my $safe = shift;
 
-  return if(!build_dfwfw_conf($safe));
+  return if(!parse_dfwfw_conf($safe));
 
-  build_docker();
+  fetch_docker_configuration();
   init_user_rules();
 
   return 1;
 }
 
+sub rebuild {
+  # this sub is called usually in context of LWP which hides the default exception outputs, so we workaround it here:
+  eval {
+    build_firewall_ruleset();
+    build_container_aliases();
+  };
+  if($@) {
+     mylog($@);
+     die($@);
+  }
+
+}
 
 sub dfwfw_already_initiated {
    my $chain = shift;
@@ -113,13 +120,13 @@ sub init_user_rules {
   return if(!$dfwfw_conf->{'initialization'});
 
   for my $table (keys %{$dfwfw_conf->{'initialization'}}) {
-      validate_table($table);
+      DFWFW::Iptables->validate_table($table);
 
       my $rules = "";
       for my $l (@{$dfwfw_conf->{'initialization'}->{$table}}) {
          $rules .= "$l\n";
       }
-      iptables_commit($table, $rules);
+      $iptables->commit($table, $rules);
   }
 }
 
@@ -129,7 +136,7 @@ sub init_dfwfw_rules {
    if (!dfwfw_already_initiated("DFWFW_FORWARD")) {
      mylog("DFWFW_FORWARD chain not found, initializing");
 
-     iptables_commit("filter", <<'EOF');
+     $iptables->commit("filter", <<'EOF');
 :DFWFW_FORWARD - [0:0]
 -I FORWARD -j DFWFW_FORWARD
 EOF
@@ -138,7 +145,7 @@ EOF
    if (!dfwfw_already_initiated("DFWFW_INPUT")) {
      mylog("DFWFW_INPUT chain not found, initializing");
 
-     iptables_commit("filter", <<'EOF');
+     $iptables->commit("filter", <<'EOF');
 :DFWFW_INPUT - [0:0]
 -I INPUT -j DFWFW_INPUT
 EOF
@@ -148,7 +155,7 @@ EOF
    if (!dfwfw_already_initiated("DFWFW_POSTROUTING", "nat")) {
      mylog("DFWFW_POSTROUTING chain not found, initializing");
 
-     iptables_commit("nat", <<"EOF");
+     $iptables->commit("nat", <<"EOF");
 :DFWFW_POSTROUTING - [0:0]
 -I POSTROUTING -j DFWFW_POSTROUTING
 -F DFWFW_POSTROUTING
@@ -161,7 +168,7 @@ EOF
    if (!dfwfw_already_initiated("DFWFW_PREROUTING", "nat")) {
      mylog("DFWFW_PREROUTING chain not found, initializing");
 
-     iptables_commit("nat", <<"EOF");
+     $iptables->commit("nat", <<"EOF");
 :DFWFW_PREROUTING - [0:0]
 -I PREROUTING -j DFWFW_PREROUTING
 EOF
@@ -178,14 +185,16 @@ sub event_cb {
    return if($d->{'status'} !~ /^(start|die)$/);
 
    mylog("Docker event: $d->{'status'} of $d->{'from'}");
-   build_docker();
-   build_firewall_ruleset();
+   fetch_docker_configuration();
+
+   rebuild();
 }
 
 sub headers_cb {
-   # first time headers arrived from the docker daemon
+   # first time HTTP headers arrived from the docker daemon
+   # this is a tricky solution to reach a race condition free state
 
-   build_firewall_ruleset();
+   rebuild();
 
 }
 
@@ -290,6 +299,16 @@ sub filter_hash_by_ref {
   }
 
   return \@re;
+}
+
+sub filter_hash_by_name {
+  my $name = shift;
+  my $list = shift;
+
+  my %n = ("name"=> "Name == $name");
+  $dfwfw_conf->parse_container_ref(\%n, "name");
+
+  return filter_hash_by_ref($n{"name-ref"}, $list);
 }
 
 
@@ -429,6 +448,74 @@ sub build_wider_world_to_container_rule_network {
 
 }
 
+sub build_container_aliases {
+
+   return if(!$dfwfw_conf->{'container_aliases'}->{'rules'});
+
+   mylog("Rebuilding container aliases...");
+
+   my %host_files;
+   for my $rule (@{$dfwfw_conf->{'container_aliases'}->{'rules'}}) {
+
+       my $alias_name = $rule->{'alias_name'};
+       mylog("Alias wanted: $alias_name");
+
+       my $cts = filter_hash_by_ref($rule->{'aliased_container-ref'}, $container_by_name);
+       if(!scalar @$cts) {
+           mylog("Container aliases: rule #$rule->{'no'} does not match any aliased containers, skipping rule");
+           next;
+       }
+
+       for my $ctname (@$cts) {
+
+           mylog ("Aliased container: $ctname");
+
+           my $matching_nets = filter_networks_by_ref($rule->{'receiver_network-ref'});
+           for my $net (@{$matching_nets}) {
+               my $alias_matches = filter_hash_by_name($ctname, $net->{'ContainerList'});
+               # print Dumper(\keys %{$net->{'ContainerList'}}); print Dumper($alias_matches);exit;
+               if(scalar @$alias_matches != 1) {
+                  mylog("it seems the aliased container is not in this network: ".Dumper($alias_matches));
+                  next;
+               }
+               my $alias_ip = $alias_matches->[0];
+
+               mylog ("Aliased container: $ctname ($alias_ip), receiver network: $net->{'Name'}");
+
+
+               my $receiver_containers = filter_hash_by_ref($rule->{'receiver_containers-ref'}, $net->{'ContainerList'});
+               for my $receiver_ip (@{$receiver_containers}) {
+                  my $receiver = $net->{'ContainerList'}->{$receiver_ip};
+                  my $receiver_name = $receiver->{'Name'};
+                  mylog ("Aliased container: $ctname ($alias_ip), receiver network: $net->{'Name'}, receiver container: $receiver_name ($receiver_ip)");
+
+                  my $hosts_file =  $container_extra_by_name->{$receiver_name}->{'HostsPath'};
+                  if(!$hosts_file) {
+                        mylog("Woho, we can't seem to find the hosts file of this container");
+                        ### Dumper( $container_extra_by_name );
+                        next;
+                  }
+
+                  if(!defined($host_files{$hosts_file})) {
+                      mylog("Opening hosts file $hosts_file for $receiver_name");
+                      $host_files{$hosts_file} = new Config::HostsFile($hosts_file);
+                  }
+
+                  $host_files{$hosts_file}->update_host($alias_name, $alias_ip);
+               }
+
+           }
+
+       }
+
+   }
+
+   for my $hf (keys %host_files) {
+       mylog("Flushing hosts file: ".$hf);
+       $host_files{$hf}->flush();
+   }
+
+}
 
 
 sub build_firewall_rules_category_rule {
@@ -459,7 +546,6 @@ sub build_firewall_rules_category {
 
     for my $rule (@{$dfwfw_conf->{$category}->{'rules'}}) {
 
-         next if($rule->{'broken'});
 
          build_firewall_rules_category_rule ($category, $rule_builder_cb, $rule, \%sre);
 
@@ -473,7 +559,7 @@ sub build_firewall_rules_category {
 
 }
 
-sub  build_firewall_rules_container_internal {
+sub  build_firewall_rules_container_internals {
    return if(!$dfwfw_conf->{'container_internals'}->{'rules'});
 
    mylog("Rebuilding container internal firewall rulesets...");
@@ -482,7 +568,6 @@ sub  build_firewall_rules_container_internal {
 
    for my $rule (@{$dfwfw_conf->{'container_internals'}->{'rules'}}) {
 
-       next if($rule->{'broken'});
 
        my $cts = filter_hash_by_ref($rule->{'container-ref'}, $container_by_name);
        if(!scalar @$cts) {
@@ -508,7 +593,7 @@ sub  build_firewall_rules_container_internal {
          my $pid = $container_extra_by_name->{$ctname}->{'State'}->{'Pid'};
          if($pid) {
             mylog("Commiting $table table rules for container $ctname via nsenter");
-            iptables_commit($table, $rules, $pid);
+            $iptables->commit($table, $rules, $pid);
          } else {
             mylog("Skipping commit for $ctname, we have no pid");
          }
@@ -540,10 +625,10 @@ sub build_firewall_ruleset {
 
   for my $k ("filter", "nat") {
      next if(!$rules{$k});
-     iptables_commit($k, $rules{$k});
+     $iptables->commit($k, $rules{$k});
   }
 
-  build_firewall_rules_container_internal();
+  build_firewall_rules_container_internals();
 
   if($c_one_shot) {
      mylog("Exiting, one-shot was specified");
@@ -551,244 +636,19 @@ sub build_firewall_ruleset {
   }
 }
 
-sub parse_container_ref {
-  my ($node, $refname) = @_;
-
-  my $spec = $node->{$refname};
-  return if(!$spec);
-
-  $spec =~ s#\s*##g; # Invalid container name (...), only [a-zA-Z0-9][a-zA-Z0-9_.-] are allowed
-  $spec = "Name==$spec"  if($spec !~ /(=|!~)/);
-  die "Invalid syntax: ".$node->{$refname} if($spec !~ /^(Name|Id|IdShort)(==|=~|!~)(.+)/);
-
-  $node->{"$refname-ref"} = {
-     "field" => $1,
-     "op" => $2,
-     "opcb" => $operators{$2}{"cmp"},
-     "value"=> $operators{$2}{"build"}($3),
-  };
-
-  return 1;
-
-}
 
 
-sub parse_network_ref {
-  my ($node, $refname) = @_;
-
-  my $spec = $node->{$refname};
-  return if(!$spec);
-
-  $spec =~ s#\s*##g; # Invalid container name (...), only [a-zA-Z0-9][a-zA-Z0-9_.-] are allowed
-  $spec = "Name==$spec"  if($spec !~ /(=|!~)/);
-  die "Invalid syntax: ".$node->{$refname} if($spec !~ /^(Name|Id|IdShort)(==|=~|!~)(.+)/);
-
-  $node->{"$refname-ref"} = {
-     "field" => $1,
-     "op" => $2,
-     "opcb" => $operators{$2}{"cmp"},
-     "value"=> $operators{$2}{"build"}($3),
-  };
-
-  return 1;
-}
-sub action_test {
-  my $node = shift;
-  my $field = shift || "action";
-
-  die "Invalid action" if((!$node->{$field})||($node->{$field} !~ /^(ACCEPT|DROP|REJECT|LOG)$/));
-}
-
-sub filter_test {
-  my $node = shift;
-
-  $node->{'filter'} = "" if(!$node->{'filter'});
-}
-
-sub parse_expose_port {
-  my $rule = shift;
-
-  return if(!$rule->{'expose_port'}); # would by exposed dynamically
-
-  my $t = ref($rule->{'expose_port'});
-  if($t eq "") {
-     ### classical port definition, turning it into an array: $rule->{'expose_port'}
-
-     $rule->{'expose_port'} = "$1/tcp" if($rule->{'expose_port'} =~ /^(\d+)$/);
-
-     die "Invalid syntax of expose_port" if($rule->{'expose_port'} !~ m#^(\d+)/(tcp|udp)$#);
-     $rule->{'expose_port'} = [{
-         "container_port"=> $1,
-         "host_port"=> $1,
-         "family"=> $2,
-     }];
-  }elsif($t ne "ARRAY") {
-    die "Invalid expose_port node";
-  }
-
-  for my $ep (@{$rule->{'expose_port'}}) {
-     for my $k (keys %$ep) {
-        die "Unknown node in expose_port: $k" if($k !~ /^(host_port|container_port|family)$/);
-        my $v = $ep->{$k};
-        die "Invalid port in expose_port: $v" if(($k =~ /_port/)&&($v !~ /^\d+$/));
-        die "Invalid family in expose_port: $v" if(($k eq "family")&&($v !~ /^(tcp|udp)$/));
-     }
-     $ep->{'family'}="tcp" if(!$ep->{'family'});
-  }
-
-}
-
-
-sub default_policy {
-  my $cat = shift;
-  my $force_default = shift;
-
-  return if(($force_default)&&($force_default eq "-"));
-
-  $dfwfw_conf->{$cat}->{'default_policy'} = $force_default if(($force_default)&&(!$dfwfw_conf->{$cat}->{'default_policy'}));
-
-  if($dfwfw_conf->{$cat}->{'default_policy'}) {
-     eval {
-        action_test($dfwfw_conf->{$cat}, 'default_policy');
-        push @{$dfwfw_conf->{$cat}->{'rules'}}, {
-           "network"=> "Name =~ .*",
-           "action"=> $dfwfw_conf->{$cat}->{'default_policy'},
-        } if(($dfwfw_conf->{$cat}->{'default_policy'} ne "DROP")||($cat eq "container_to_host"));
-     };
-     if($@) {
-        mylog("ERROR: invalid default policy for $cat: $@");
-     }
-  }
-
-}
-
-sub build_dfwfw_conf_rule_category {
-  my $category = shift;
-  my $force_default_policy = shift;
-  my @extra_nodes = @_;
-
-  my @generic_nodes = ("action","filter","network");
-  my @nodes = (@generic_nodes, @extra_nodes);
-
-  ### !!!!!!!!!!!!! category: $category
-  ###               default policy: $force_default_policy
-
-  default_policy($category, $force_default_policy);
-
-  return if(!$dfwfw_conf->{$category}->{'rules'});
-
-  if(scalar @{$dfwfw_conf->{$category}->{'rules'}}) {
-     my $rno = 0;
-     for my $node (@{$dfwfw_conf->{$category}->{'rules'}}) {
-        eval {
-           for my $k (keys %$node) {
-              die "Invalid key: $k" if(!($k ~~ @nodes));
-           }
-
-           die "No network specified" if(!parse_network_ref($node, "network"));
-           filter_test($node);
-
-           for my $extra (@extra_nodes) {
-              if($extra eq "action") {
-                 action_test($node);
-              }elsif($extra =~ /container/) {
-                 parse_container_ref($node, $extra);
-              }elsif($extra eq "expose_port") {
-                 parse_expose_port($node);
-              } else {
-                 die "No parsing handler for: $extra";
-              }
-           }
-
-        };
-        $node->{'no'} = ++$rno;
-        if($@) {
-           mylog("ERROR: Broken rule: $@\n".Dumper($node));
-           $node->{'broken'} = 1;
-        }
-     }
-
-     mylog("$category rules were parsed as:\n".Dumper($dfwfw_conf->{$category}->{'rules'}));
-  }
-
-}
-
-sub validate_table {
-  my $table = shift;
-
-  die "Invalid table" if(!($table ~~ IPTABLES_TABLES));
-}
-
-
-sub build_dfwfw_conf_container_internals {
-
-
-  return if(!$dfwfw_conf->{"container_internals"});
-  return if(!$dfwfw_conf->{"container_internals"}->{'rules'});
-  return if(!scalar @{$dfwfw_conf->{"container_internals"}->{'rules'}});
-
-  my @nodes = ("container","rules","table");
-
-     my $rno = 0;
-     for my $node (@{$dfwfw_conf->{"container_internals"}->{'rules'}}) {
-        eval {
-           for my $k (keys %$node) {
-              die "Invalid key: $k" if(!($k ~~ @nodes));
-           }
-
-           die "Container not specified" if(!parse_container_ref($node, "container"));
-           $node->{'table'}="filter" if(!$node->{'table'});
-
-           validate_table($node->{'table'});
-
-           die "No rules specified" if(!$node->{'rules'});
-           my $t = ref($node->{'rules'});
-           die "Invalid rule node" if($t !~ /^(ARRAY)?$/);
-
-           $node->{'rules'} = [$node->{'rules'}] if($t eq "");
-
-        };
-        $node->{'no'} = ++$rno;
-        if($@) {
-           mylog("ERROR: Broken rule: $@\n".Dumper($node));
-           $node->{'broken'} = 1;
-        }
-     }
-
-     mylog("container internal rules were parsed as:\n".Dumper($dfwfw_conf->{"container_internals"}->{'rules'}));
-
-}
-
-
-sub build_dfwfw_conf {
+sub parse_dfwfw_conf {
   my $safe = shift;
 
-  my $orig_dfwfw_conf = $dfwfw_conf; # saving the original configuration
   eval {
-    mylog("Parsing ruleset configuration file ".DFWFW_CONFIG);
-    my $contents = read_file(DFWFW_CONFIG);
-    # strip out comments:
-    $contents =~ s/#.*//g;
-    $dfwfw_conf = decode_json($contents);
-
-    for my $k (keys %$dfwfw_conf) {
-       warn "Unknown node in dfwfw.conf: $k" if($k !~ /^(docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_internal)$/);
-    }
-
-    $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});
-
-    build_dfwfw_conf_rule_category("container_to_container",   undef, "action","src_container", "dst_container");
-    build_dfwfw_conf_rule_category("container_to_wider_world", undef, "action","src_container");
-    build_dfwfw_conf_rule_category("container_to_host",        "DROP","action","src_container");
-
-    build_dfwfw_conf_rule_category("wider_world_to_container", "-",   "expose_port", "dst_container");
-
-    build_dfwfw_conf_container_internals();
-  };
+     my $new_dfwfw_conf = new DFWFW::Config(\&mylog);
+     # success
+     $dfwfw_conf = $new_dfwfw_conf;
+  }; 
   if($@) {
      if($safe) {
          print "Syntax error in configuration file:\n$@\n\nReverting to original config and not proceeding to firewall ruleset rebuild\n";
-         $dfwfw_conf = $orig_dfwfw_conf;
          return 0;
      }
 
@@ -798,7 +658,7 @@ sub build_dfwfw_conf {
   return 1;
 }
 
-sub build_docker {
+sub fetch_docker_configuration {
 
   mylog("Talking to Docker daemon to learn current network and container configuration");
 
@@ -853,7 +713,12 @@ sub build_docker {
      $network_by_bridge->{$net->{'BridgeName'}} = $net;
   }
 
-  if(($dfwfw_conf->{'container_internals'}->{'rules'})&&(scalar @{$dfwfw_conf->{'container_internals'}->{'rules'}})) {
+  if(
+     (($dfwfw_conf->{'container_internals'}->{'rules'})&&(scalar @{$dfwfw_conf->{'container_internals'}->{'rules'}})) 
+     ||
+     (($dfwfw_conf->{'container_aliases'}->{'rules'})&&(scalar @{$dfwfw_conf->{'container_aliases'}->{'rules'}})) 
+    )
+  {
      for my $name (keys %$container_by_name) {
         my $c = $container_by_name->{$name};
         my $full_info = $api->container_info($c->{'Id'});
@@ -869,29 +734,6 @@ sub build_docker {
   exit;
 =cut
   ### Networks by name: $network_by_name
-}
-
-sub iptables_commit {
-  my ($table, $rules, $pid_for_nsenter) = @_;
-
-  my $complete = "
-*$table
-$rules
-COMMIT
-";
-  $complete =~ s/ {2,}/ /g;
-
-  mylog(($c_dry_run ? "Dry-run, not " : ""). "commiting to $table table".($pid_for_nsenter?" via nsenter for pid $pid_for_nsenter":"").":\n$complete\n");
-
-
-  if(!$c_dry_run) {
-     write_file(IPTABLES_TMP_FILE, $complete);
-
-     my $cmd_prefix = $pid_for_nsenter ? "nsenter -t $pid_for_nsenter -n" : "";
-     system("$cmd_prefix iptables-restore -c --noflush ".IPTABLES_TMP_FILE);
-
-     unlink(IPTABLES_TMP_FILE);
-  }
 }
 
 sub mylog {
