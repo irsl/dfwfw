@@ -123,10 +123,8 @@ The software is free for any purposes, but no responsibility.
 
    - Testing, test harness
    - Support for logging to file
-   - Head/tail hooks for initializing additional custom rules
    - IPv6 support
    - Improve documentation
-   - TLS certificates for the Docker connection?...
 
 
   
