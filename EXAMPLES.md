@@ -111,7 +111,7 @@ Chain DFWFW_FORWARD (1 references)
 This one is a more complex one.
 It routes web requests of banned clients (marked in the BAN_* chains of the mangle table) to the fcgi-tests-banned container.
 Other (non-web) connections by these banned clients would be dropped.
-HTTP connections from the IP address 10.6.6.205 are routed to fcgi-tests-experimental container.
+HTTP connections from the IP address 10.6.6.205 are routed to nginx-experimental container.
 Other HTTP connections go to the (generic) nginx container.
 Otherwise the firewall is stateful and only SSH is accepted from the outside to the host.
 
@@ -175,25 +175,20 @@ Otherwise the firewall is stateful and only SSH is accepted from the outside to 
        "rules": [
           {
              "network": "bridge",
-             "dst_container": "fcgi-tests-banned",
+             "dst_container": "nginx-banned",
              "filter": "-m mark --mark 0x1",
              "expose_port": 80
           },
           {
              "network": "bridge",
-             "dst_container": "fcgi-tests-experimental",
+             "dst_container": "nginx-experimental",
              "filter": "-s 10.6.6.205",
              "expose_port": 80
           },
           {
              "network": "bridge",
-             "dst_container": "fcgi-tests",
+             "dst_container": "nginx",
              "filter": "-m mark ! --mark 0x1",
-             "expose_port": 80
-          },
-          {
-             "network": "bridge",
-             "dst_container": "Name =~ nginx",
              "expose_port": 80
           }
        ]
