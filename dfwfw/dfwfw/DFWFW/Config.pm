@@ -67,14 +67,6 @@ sub _action_test {
   die "Invalid action" if((!$node->{$field})||($node->{$field} !~ /^(ACCEPT|DROP|REJECT|LOG)$/));
 }
 
-sub _parse_input_interface {
-  my $dfwfw_conf = shift;
-  my $node = shift;
-
-  $node->{'input_network_interface'} = $dfwfw_conf->{'external_network_interface'} if(!$node->{'input_network_interface'});
-
-}
-
 
 sub _filter_test {
   my $dfwfw_conf = shift;
@@ -148,7 +140,7 @@ sub _parse_dfwfw_conf_rule_category {
   my $force_default_policy = shift;
   my @extra_nodes = @_;
 
-  my @generic_nodes = ("action","filter","network");
+  my @generic_nodes = ("action","filter");
   my @nodes = (@generic_nodes, @extra_nodes);
 
   ### !!!!!!!!!!!!! category: $category
@@ -162,11 +154,22 @@ sub _parse_dfwfw_conf_rule_category {
      my $rno = 0;
      for my $node (@{$dfwfw_conf->{$category}->{'rules'}}) {
 
+       eval {
            for my $k (keys %$node) {
               die "Invalid key: $k" if(!($k ~~ @nodes));
            }
 
-           die "No network specified" if(!$dfwfw_conf->_parse_network_ref($node, "network"));
+           if($category ne "container_dnat") {
+             die "No network specified" if(!$node->{"network"});
+           } else {
+             die "You must specify both src_network and src_container" if( (($node->{'src_container'})&&(!$node->{'src_network'})) || ((!$node->{'src_container'})&&($node->{'src_network'})));
+
+             die "Destination network is not defined" if(!$node->{'dst_network'});
+             die "Destination container is not defined" if(!$node->{'dst_container'});
+             die "Expose port is not defined" if(!$node->{'expose_port'});
+           }
+
+
            $dfwfw_conf->_filter_test($node);
 
            for my $extra (@extra_nodes) {
@@ -176,8 +179,9 @@ sub _parse_dfwfw_conf_rule_category {
                  $dfwfw_conf->parse_container_ref($node, $extra);
               }elsif($extra eq "expose_port") {
                  $dfwfw_conf->_parse_expose_port($node);
-              }elsif($extra eq "input_network_interface") {
-                 $dfwfw_conf->_parse_input_interface($node);
+              }elsif($extra =~ /network/) {
+                 $dfwfw_conf->_parse_network_ref($node, $extra);
+
               } else {
                  die "No parsing handler for: $extra";
               }
@@ -187,8 +191,12 @@ sub _parse_dfwfw_conf_rule_category {
               die "Next to src_dst_container no src nor dst_container nodes can be present";
            }
 
-
+        };
         $node->{'no'} = ++$rno;
+        if($@) {
+           die "ERROR: $@ in:\n".Dumper($node);
+        }
+
      }
 
      $dfwfw_conf->{'_logger'}->("$category rules were parsed as:\n".Dumper($dfwfw_conf->{$category}->{'rules'}));
@@ -280,16 +288,18 @@ sub new {
     $dfwfw_conf->{'_logger'}= $mylog;
 
     for my $k (keys %$dfwfw_conf) {
-       $dfwfw_conf->{'_logger'}->( "Unknown node in dfwfw.conf: $k" ) if($k !~ /^(initialization|docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_internals|container_aliases|_logger)$/);
+       $dfwfw_conf->{'_logger'}->( "Unknown node in dfwfw.conf: $k" ) if($k !~ /^(initialization|docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_dnat|container_internals|container_aliases|_logger)$/);
     }
 
     $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});
 
-    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_container",   undef, "action","src_container", "dst_container", "src_dst_container");
-    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_wider_world", undef, "action","src_container");
-    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_host",        "DROP","action","src_container");
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_container",   undef, "network","action","src_container", "dst_container", "src_dst_container");
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_wider_world", undef, "network","action","src_container");
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_to_host",        "DROP","network","action","src_container");
 
-    $dfwfw_conf->_parse_dfwfw_conf_rule_category("wider_world_to_container", "-", "input_network_interface",  "expose_port", "dst_container");
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("wider_world_to_container", "-",   "network","expose_port", "dst_container");
+
+    $dfwfw_conf->_parse_dfwfw_conf_rule_category("container_dnat",           "-",   "src_network", "src_container", "expose_port", "dst_container", "dst_network");
 
     $dfwfw_conf->_parse_dfwfw_conf_container_internals();
 

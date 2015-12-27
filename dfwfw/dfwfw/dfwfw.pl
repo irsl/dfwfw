@@ -465,10 +465,10 @@ sub build_wider_world_to_container_rule_network_container_expose {
    for my $ep (@$expose) {
        my $cmnt = "# #$rule->{'no'}: host:$ep->{'host_port'} -> $cname:$ep->{'container_port'} / $ep->{'family'}\n";
        $re->{'nat'} .= $cmnt;
-       $re->{'nat'} .= "-A DFWFW_PREROUTING -i $rule->{'input_network_interface'} -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
+       $re->{'nat'} .= "-A DFWFW_PREROUTING -i $dfwfw_conf->{'external_network_interface'} -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
 
        $re->{'filter'} .= $cmnt;
-       $re->{'filter'} .= "-A DFWFW_FORWARD -i $rule->{'input_network_interface'} -o $network->{'BridgeName'} -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
+       $re->{'filter'} .= "-A DFWFW_FORWARD -i $dfwfw_conf->{'external_network_interface'} -o $network->{'BridgeName'} -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
    }
 
 }
@@ -526,6 +526,158 @@ sub build_wider_world_to_container_rule_network {
   }
 
 }
+
+sub build_container_dnat_rule_dst_src {
+  my $rule = shift;
+  my $re= shift;
+  my $d = shift;
+  my $dst_network = shift;
+  my $expose = shift;
+  my $src_network = shift;
+  my $srcs = shift;
+
+     my $cname = $container_by_ip->{$d}->{'Name'};
+     for my $s (@$srcs) {
+
+       for my $ep (@$expose) {
+         my $src_network_str = "";
+         $src_network_str = "-i $src_network->{'BridgeName'}" if($src_network);
+         $src_network_str = "! -i $dfwfw_conf->{'external_network_interface'}" if(!$src_network);
+         my $dst_network_str = "";
+         $dst_network_str = "-o $dst_network->{'BridgeName'}" if($dst_network);
+
+         my $cmnt = "# #$rule->{'no'}: $s:$ep->{'host_port'} @ $src_network_str -> $cname:$ep->{'container_port'} @ $dst_network_str / $ep->{'family'}\n";
+
+         my $sstr = "";
+         $sstr = "-s $s" if($s);
+
+         $re->{'nat'} .= $cmnt;
+         $re->{'nat'} .= "-A DFWFW_PREROUTING $src_network_str -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
+
+         $re->{'filter'} .= $cmnt;
+         $re->{'filter'} .= "-A DFWFW_FORWARD $src_network_str $dst_network_str $sstr -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
+       }
+     }
+
+}
+
+
+sub build_container_dnat_rule_dst {
+
+  my $rule = shift;
+  my $re= shift;
+  my $d = shift;
+  my $dst_network = shift;
+  my $expose = shift;
+
+
+  my $src = [""];
+  my $matching_nets = [""];
+  if($rule->{'src_container-ref'}) {
+     $matching_nets = filter_networks_by_ref($rule->{'src_network-ref'});
+     mylog("Container dnat: number of matching src networks for rule #$rule->{'no'}: ".(scalar @$matching_nets));
+
+  }
+
+  my $src_containers = 0;
+  for my $src_network (@$matching_nets) {
+     my $srcs = [""];
+     $srcs = filter_hash_by_ref($rule->{'src_container-ref'}, $src_network->{'ContainerList'}) if($src_network);
+
+     my $c_srcs = scalar @$srcs;
+     if(!$c_srcs) {
+         mylog("Container dnat: src_container in network $src_network of rule #$rule->{'no'} does not match any containers, skipping network");
+         next;
+     }
+
+
+     build_container_dnat_rule_dst_src($rule, $re, $d, $dst_network, $expose, $src_network, $srcs);
+
+     $src_containers+= $c_srcs;
+  }
+
+  if(!$src_containers) {
+     mylog("Container dnat: src_containers of rule #$rule->{'no'} does not match any containers, skipping rule");
+  }
+
+
+}
+
+sub build_container_dnat_rule {
+  my $rule = shift;
+  my $re= shift;
+
+  ### cdnat rule network: $rule->{'no'}
+
+  if(!$rule->{'dst_container-ref'}) {
+      mylog("Container dnat: dst_container not specified in rule #$rule->{'no'}, skipping rule");
+      return;
+  }
+
+
+  my $matching_nets = filter_networks_by_ref($rule->{'dst_network-ref'});
+  if(!scalar @$matching_nets) {
+     mylog("Container dnat: dst_network of rule #$rule->{'no'} does not match any networks, skipping rule");
+     return ;
+  }
+
+  mylog("Container dnat: number of matching dst networks for rule #$rule->{'no'}: ".(scalar @$matching_nets));
+
+  my %dst_ip_to_network_name_map;
+  my @hsrc;
+  for my $network (@$matching_nets) {
+     my $adsts = filter_hash_by_ref($rule->{'dst_container-ref'}, $network->{'ContainerList'});
+     for my $d (@$adsts) {
+        $dst_ip_to_network_name_map{$d} = $network;
+     }
+     push @hsrc, @$adsts;
+
+  }
+
+  if(!scalar @hsrc) {
+     mylog("Container dnat: dst_container of rule #$rule->{'no'} does not match any containers, skipping rule");
+     return ;
+  }
+
+
+
+  my $dst = \@hsrc;
+  for my $d (@$dst) {
+
+     my $expose = $rule->{'expose_port'};
+
+     if(!$expose) {
+        my @e;
+        ### building exposed ports based on the current docker configuration
+        for my $port (@{$container_by_ip->{$d}->{'Ports'}}) {
+            my %a;
+
+            eval {
+              die "No private port exposed?!" if(!$port->{'PrivatePort'});
+              $port->{'Type'} = "tcp" if(!$port->{'Type'});
+
+              $a{'container_port'} = $port->{'PrivatePort'};
+              $a{'host_port'} = $port->{'PublicPort'} ? $port->{'PublicPort'} : $port->{'PrivatePort'};
+              $a{'family'} = $port->{'Type'};
+
+              die "Autoconfiguration of IP specific exposed ports are not yet implemented" if(($port->{'IP'})&&($port->{'IP'} ne "0.0.0.0"));
+
+              push @e, \%a;
+
+            };
+            mylog("warn: $@") if($@);
+        }
+        $expose = \@e;
+
+     }
+
+     build_container_dnat_rule_dst($rule, $re, $d, $dst_ip_to_network_name_map{$d}, $expose);
+  }
+
+
+
+}
+
 
 sub build_container_aliases {
 
@@ -603,12 +755,17 @@ sub build_firewall_rules_category_rule {
   my $rule = shift;
   my $re = shift;
 
-  my $matching_nets = filter_networks_by_ref($rule->{'network-ref'});
-  mylog("$category: number of matching networks for rule #$rule->{'no'}: ".(scalar @$matching_nets));
+  if($category ne "container_dnat") {
+    my $matching_nets = filter_networks_by_ref($rule->{'network-ref'});
+    mylog("$category: number of matching networks for rule #$rule->{'no'}: ".(scalar @$matching_nets));
 
-  for my $net (@$matching_nets) {
+    for my $net (@$matching_nets) {
 
-     $rule_builder_cb->($rule, $net, $re);
+       $rule_builder_cb->($rule, $net, $re);
+    }
+  } else {
+    $rule_builder_cb->($rule, $re);
+
   }
 
 }
@@ -698,6 +855,8 @@ sub build_firewall_ruleset {
   build_firewall_rules_category("container_to_host", \&build_container_to_host_rule_network, \%rules);
 
   build_firewall_rules_category("wider_world_to_container", \&build_wider_world_to_container_rule_network, \%rules);
+
+  build_firewall_rules_category("container_dnat", \&build_container_dnat_rule, \%rules);
 
   # and the final rule just for sure.
   $rules{'filter'} .= dfwfw_rules_tail("DFWFW_FORWARD");
