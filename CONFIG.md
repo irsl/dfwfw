@@ -9,7 +9,7 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
  - container_to_wider_world: Container to wider world rules
  - container_to_host: Container to host rules
  - wider_world_to_container: Wider world to container rules
- - container_dnat: DNAT rules for containers (TODO)
+ - container_dnat: DNAT rules for containers
  - container_internals: Container internal rules
  - container_aliases: Container aliases
 
@@ -116,13 +116,37 @@ In case of IPv4, DFWFW configures DNAT rules in the background according to the 
 forward rules accepting the same ports.
 In case of IPv6, DFWFW configures forward rules accepting the specified ports (TODO).
 
-The following keys can be specified inside `container_to_host`:
+The following keys can be specified inside `wider_world_to_container`:
  - rules: array of `wider_world_to_container_rule_definition`
 
 The following keys can be specified inside `wider_world_to_container_rule_definition`:
  - network: see `network_definition`
  - dst_container: see `container_definition`
  - expose_port: optional, see `expose_port_definition`
+
+### container_dnat
+
+Using the `container_dnat` feature it is possible to define rules with destination network address translation.
+This category is special, source and destination networks might be different.
+In case of IPv4, DFWFW configures DNAT rules in the background according to the configuration and also 
+forward rules accepting the same ports.
+In case of IPv6, DFWFW configures forward rules accepting the specified ports (TODO).
+
+The following keys can be specified inside `container_dnat`:
+ - rules: array of `container_dnat_rule_definition`
+
+The following keys can be specified inside `container_dnat_rule_definition`:
+ - src_network: optional, see `network_definition`
+ - src_container: optional, see `container_definition`
+ - dst_network: see `network_definition`
+ - dst_container: see `container_definition`
+ - expose_port: optional, see `expose_port_definition`
+
+In case of the source container filtering, both src_network and src_container should be defined.
+
+Both dst_network and dst_container should be defined and should match only one container. This latter is not enforced, 
+it just makes not too much sense if it matched many.
+
 
 ### container_internals
 

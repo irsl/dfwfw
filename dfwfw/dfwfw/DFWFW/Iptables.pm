@@ -24,7 +24,26 @@ sub new {
   return $obj;
 }
 
-sub commit {
+sub build_and_commit_rulesets {
+  my ($obj, $rulesets, $pid_for_nsenter) = @_;
+
+  my %re;
+  for my $ruleset (@$rulesets) {
+     $ruleset->build(\%re);
+  }
+
+  $obj->commit_rules(\%re, $pid_for_nsenter);
+}
+
+sub commit_rules {
+  my ($obj, $rules_hash, $pid_for_nsenter) = @_;
+
+  for my $table (keys %$rules_hash) {
+     $obj->commit_rules_table($table, $rules_hash->{$table}, $pid_for_nsenter);
+  }
+}
+
+sub commit_rules_table {
   my ($obj, $table, $rules, $pid_for_nsenter) = @_;
 
   my $complete = "

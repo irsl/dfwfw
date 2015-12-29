@@ -208,8 +208,61 @@ Perl backrefs can be used in src_dst_container rules, for example:
 
 Note the double quotes of the `\d` which is due to the JSON parsing layer.
 
-
 ### Example #6
+
+The following example would add the host name alias `my.nginx.alias` for `some-nginx` container
+to hosts file to all containers being member of the `web` network:
+
+```
+   "container_aliases": {
+      "rules": [
+         {
+            "aliased_container": "Name =~ some-nginx.*",
+            "alias_name": "my.nginx.alias",
+            "receiver_network": "web",
+            "receiver_containers": "Name =~ .*"
+         }
+      ]
+   }
+```
+
+### Example #7
+
+Using the `container_dnat` feature it is possible to define rules with destination network address translation.
+For example to hijack DNS queries resolving `anything.docker.local` and route them to the container `tinydns`
+you can use the following rule:
+
+```
+"container_dnat": {
+       "rules": [
+          {
+             "filter": "-m string --hex-string |06646f636b6572056c6f63616c| --algo bm",
+             "dst_network":   "web",
+             "dst_container": "tinydns",
+             "expose_port": "53/udp"
+          }
+       ]
+   }
+```
+
+Filtering the packets based on the source container is possible too (`src_container` and `src_network` nodes).
+
+The DFWFW rule above would generate the following two iptables rules:
+
+```
+Chain DFWFW_FORWARD (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+...
+    0     0 ACCEPT     udp  --  !eth0  br-78ba18a93c68  0.0.0.0/0   172.18.0.3           udp dpt:53
+
+
+Chain DFWFW_PREROUTING (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+...
+    0     0 DNAT       udp  --  !eth0  *       0.0.0.0/0            0.0.0.0/0            udp dpt:53 STRING match  "|06646f636b6572056c6f63616c|" ALGO name bm TO 65535 to:172.18.0.3:53
+```
+
+### Example #8
 
 More examples might be coming in case of any interest.
 
