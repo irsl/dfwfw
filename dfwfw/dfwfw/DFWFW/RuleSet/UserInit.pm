@@ -35,7 +35,7 @@ sub build {
   for my $table (keys %{$ruleset->{'_rules'}}) {
 
       my $rules = "";
-      for my $l (@{$dfwfw_conf->{'initialization'}->{$table}}) {
+      for my $l (@{$ruleset->{'_rules'}->{$table}}) {
          $rules .= "$l\n";
       }
       $re->{$table} = $rules;
