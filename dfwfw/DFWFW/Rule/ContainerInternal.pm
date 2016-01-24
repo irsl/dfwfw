@@ -4,7 +4,6 @@ use parent "DFWFW::Rule::Base";
 
 use DFWFW::Config;
 use Data::Dumper;
-use experimental 'smartmatch';
 
 sub parse {
   my $rule = shift;

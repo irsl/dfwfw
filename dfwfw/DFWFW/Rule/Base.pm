@@ -2,6 +2,9 @@ package DFWFW::Rule::Base;
 
 use Data::Dumper;
 
+use experimental 'smartmatch';
+
+
 sub new {
   my $class = shift;
   my $ruleset = shift;
