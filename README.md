@@ -30,7 +30,7 @@ To build:
 
 The project will be published on the official Docker HUB as soon as some more thorough testing has happened.
 
-The tool reads the firewall rules from a JSON formatted configuration file from the location `/etc/dfwfw.conf`. It is recommended to cross-mount this file when creating the container. The default configuration file available in this repository reproduces the behavior of the Docker daemon with the following options:
+The tool reads the firewall rules from a JSON formatted configuration file from the location `/etc/dfwfw/dfwfw.conf`. It is recommended to cross-mount this file when creating the container. The default configuration file available in this repository reproduces the behavior of the Docker daemon with the following options:
 
 `--iptables=true --icc=false --ip-forward=true`
 
@@ -53,7 +53,7 @@ Example command:
 docker run \
   --name=dfwfw -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /path/to/your/dfwfw.conf:/etc/dfwfw.conf \
+  -v /path/to/your/dfwfw.conf:/etc/dfwfw/dfwfw.conf \
   --net=host \
   --cap-add=NET_ADMIN \
   dfwfw
@@ -69,7 +69,7 @@ Example command:
 docker run \
   --name=dfwfw -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /path/to/your/dfwfw.conf:/etc/dfwfw.conf \
+  -v /path/to/your/dfwfw.conf:/etc/dfwfw/dfwfw.conf \
   --net=host \
   --cap-add=NET_ADMIN \
   --pid=host \
@@ -87,7 +87,7 @@ docker run \
   --name=dfwfw -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /var/lib/docker/containers:/var/lib/docker/containers \
-  -v /path/to/your/dfwfw.conf:/etc/dfwfw.conf \
+  -v /path/to/your/dfwfw.conf:/etc/dfwfw/dfwfw.conf \
   --net=host \
   --cap-add=NET_ADMIN \
   dfwfw

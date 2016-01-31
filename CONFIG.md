@@ -18,6 +18,10 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
  - container_internals: Container internal rules
  - container_aliases: Container aliases
 
+DFWFW tries to open this configuration file from the following location (in that order):
+ - /etc/dfwfw/dfwfw.conf
+ - /etc/dfwfw.conf
+
 ### initialization
 
 The initialization key takes JSON hashes of the supported netfilter tables. Their values are JSON arrays with the actual
