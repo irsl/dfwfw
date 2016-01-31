@@ -2,7 +2,12 @@
 
 The DFWFW configuration file is JSON formatted with a hash as root node, which might contain the following keys:
 
- - docker_socket: Specification of the Docker socket. Default value is `http:/var/run/docker.sock/`. (Note the trailing slash! [Details][AltSocket])
+ - docker_socket: Specification of the Docker socket. Default value is `http:/var/run/docker.sock/`.
+   (Note the trailing slash! [Details][AltSocket])
+ - log_path: JSON string, by default it is /var/log/dfwfw. If `log_split_by_event` is true,
+   this path should be a directory, else a complete filename.
+ - log_split_by_event: JSON boolean, default true. If it is turned on, DFWFW splits 
+   the log files by event (for example signals, Docker container events).
  - external_network_interface: Name of the network interface with the default gateway. Default is `eth0`.
  - initialization: Initial firewall rules for the host.
  - container_to_container: Container to container firewall rules

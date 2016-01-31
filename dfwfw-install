@@ -9,3 +9,4 @@ cpanm LWP/Protocol/http/SocketUnixAlt.pm
 apt-get remove -y build-essential cpanminus wget 
 apt-get autoremove -y 
 rm -rf /var/lib/apt/lists/*
+mkdir /var/log/dfwfw

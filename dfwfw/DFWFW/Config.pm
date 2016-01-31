@@ -6,7 +6,8 @@ use JSON::XS;
 use Data::Dumper;
 use experimental 'smartmatch';
 use File::Slurp;
-use constant DFWFW_CONFIG => "/etc/dfwfw.conf";
+use constant DFWFW_CONFIG_LEGACY => "/etc/dfwfw.conf";
+use constant DFWFW_CONFIG => "/etc/dfwfw/dfwfw.conf";
 use DFWFW::Iptables;
 use DFWFW::RuleSet::UserInit;
 use DFWFW::RuleSet::ContainerToContainer;
@@ -142,7 +143,12 @@ sub _turn_to_ruleset {
 sub new {
   my $class = shift;
   my $mylog = shift;
-  my $config_file = shift || DFWFW_CONFIG;
+  my $config_file = shift;
+
+  if(!$config_file) {
+     $config_file = DFWFW_CONFIG_LEGACY;
+     $config_file = DFWFW_CONFIG if(-s DFWFW_CONFIG);
+  }
 
   die "No config file" if(!$config_file);
   die "No log callback" if(!$mylog);
@@ -157,7 +163,7 @@ sub new {
     $dfwfw_conf->{'_logger'}= $mylog;
 
     for my $k (keys %$dfwfw_conf) {
-       $dfwfw_conf->mylog( "Unknown node in dfwfw.conf: $k" ) if($k !~ /^(initialization|docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_dnat|container_internals|container_aliases|_logger)$/);
+       $dfwfw_conf->mylog( "Unknown node in dfwfw.conf: $k" ) if($k !~ /^(initialization|log_path|log_split_by_event|docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_dnat|container_internals|container_aliases|_logger)$/);
     }
 
     $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});

@@ -16,6 +16,7 @@ use WebService::Docker::Info;
 use Config::HostsFile;
 use DFWFW::Config;
 use DFWFW::Iptables;
+use DFWFW::Logger;
 
 local $| = 1;
 
@@ -29,19 +30,23 @@ my ($c_dry_run, $c_one_shot) = (0, 0);
 
 my $dfwfw_conf;
 my $iptables = new DFWFW::Iptables(\&mylog, $c_dry_run);
+my $logger = new DFWFW::Logger();
 
 my $docker_info;
 
 local $SIG{TERM} = sub {
+  $logger->set_key("TERM");
   mylog("Received term signal, exiting");
   exit;
 };
 local $SIG{ALRM} = sub {
+  $logger->set_key("ALRM");
   mylog("Received alarm signal, rebuilding Docker configuration");
   ### Networks by name before: $docker_info->{'network_by_name'}
   fetch_docker_configuration();
 };
 local $SIG{HUP} = sub {
+  $logger->set_key("HUP");
   mylog("Received HUP signal, rebuilding everything");
   return if(!on_hup(1));
 
@@ -167,9 +172,12 @@ EOF
 sub event_cb {
    my $d = shift;
 
+   mylog("Docker event: $d->{'status'} of $d->{'from'}");
+
    return if($d->{'status'} !~ /^(start|die)$/);
 
-   mylog("Docker event: $d->{'status'} of $d->{'from'}");
+   $logger->set_key($d->{'status'}." - ".$d->{'from'});
+   mylog("Processing Docker event: $d->{'status'} of $d->{'from'}");
    fetch_docker_configuration();
 
    rebuild();
@@ -239,6 +247,8 @@ sub parse_dfwfw_conf {
      my $new_dfwfw_conf = new DFWFW::Config(\&mylog);
      # success
      $dfwfw_conf = $new_dfwfw_conf;
+
+     $logger->new_config($dfwfw_conf);
   }; 
   if($@) {
      if($safe) {
@@ -272,5 +282,5 @@ sub fetch_docker_configuration {
 sub mylog {
   my $msg = shift;
 
-  print ("[".localtime."] $msg\n");
+  $logger->log($msg);
 }

@@ -122,7 +122,6 @@ The software is free for any purposes, but no responsibility.
 ### TODO
 
    - Testing, test harness
-   - Support for logging to file
    - IPv6 support
    - Improve documentation
 
