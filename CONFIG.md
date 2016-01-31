@@ -284,8 +284,8 @@ Examples:
 ```
 
 The array version holds array of hashes with the following keys:
- - host_port: port number on the host machine
- - container_port: port number inside the container where the service is listening
+ - host_port: port number on the host machine. Port range can be specified separated by a colon.
+ - container_port: optional, default is same as host_port. The port number inside the container where the service is listening.
  - family: optional, protocol family, default is tcp
 
 

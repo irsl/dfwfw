@@ -83,9 +83,8 @@ sub parse_expose_port {
 
      $rule->{'expose_port'} = "$1/tcp" if($rule->{'expose_port'} =~ /^(\d+)$/);
 
-     die "Invalid syntax of expose_port" if($rule->{'expose_port'} !~ m#^(\d+)/(tcp|udp)$#);
+     die "Invalid syntax of expose_port" if($rule->{'expose_port'} !~ m#^(\d+(?::\d+)?)/(tcp|udp)$#);
      $rule->{'expose_port'} = [{
-         "container_port"=> $1,
          "host_port"=> $1,
          "family"=> $2,
      }];
@@ -97,7 +96,8 @@ sub parse_expose_port {
      for my $k (keys %$ep) {
         die "Unknown node in expose_port: $k" if($k !~ /^(host_port|container_port|family)$/);
         my $v = $ep->{$k};
-        die "Invalid port in expose_port: $v" if(($k =~ /_port/)&&($v !~ /^\d+$/));
+        die "Invalid host_port in expose_port: $v" if(($k =~ /_port/)&&($v !~ /^\d+(:\d+)?$/));
+        die "Invalid container_port in expose_port: $v" if(($k =~ /container_port/)&&($v !~ /^\d+$/));
         die "Invalid family in expose_port: $v" if(($k eq "family")&&($v !~ /^(tcp|udp)$/));
      }
      $ep->{'family'}="tcp" if(!$ep->{'family'});

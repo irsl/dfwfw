@@ -22,10 +22,12 @@ sub _build_network_container_expose {
    for my $ep (@$expose) {
        my $cmnt = "# #$rule->{'no'}: host:$ep->{'host_port'} -> $cname:$ep->{'container_port'} / $ep->{'family'}\n";
        $re->{'nat'} .= $cmnt;
-       $re->{'nat'} .= "-A DFWFW_PREROUTING -i $dfwfw_conf->{'external_network_interface'} -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
+       my $cportstr = ($ep->{'container_port'} ? ":$ep->{'container_port'}" : "");
+       $re->{'nat'} .= "-A DFWFW_PREROUTING -i $dfwfw_conf->{'external_network_interface'} -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d$cportstr\n";
 
        $re->{'filter'} .= $cmnt;
-       $re->{'filter'} .= "-A DFWFW_FORWARD -i $dfwfw_conf->{'external_network_interface'} -o $network->{'BridgeName'} -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
+       my $cport = ($ep->{'container_port'} ? $ep->{'container_port'} : $ep->{'host_port'});
+       $re->{'filter'} .= "-A DFWFW_FORWARD -i $dfwfw_conf->{'external_network_interface'} -o $network->{'BridgeName'} -d $d -p $ep->{'family'} --dport $cport -j ACCEPT\n";
    }
 
 }
