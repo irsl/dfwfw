@@ -32,7 +32,7 @@ sub commit {
 
   my %re;
   $ruleset->build($docker_info, \%re);
-  $iptables->commit_rules(\%re);
+  $ruleset->mylog("ERROR: iptables-restore returned failure") if( $iptables->commit_rules(\%re) );
 }
 
 sub mylog {

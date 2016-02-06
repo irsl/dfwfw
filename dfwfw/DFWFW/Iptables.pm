@@ -32,15 +32,17 @@ sub build_and_commit_rulesets {
      $ruleset->build(\%re);
   }
 
-  $obj->commit_rules(\%re, $pid_for_nsenter);
+  return $obj->commit_rules(\%re, $pid_for_nsenter);
 }
 
 sub commit_rules {
   my ($obj, $rules_hash, $pid_for_nsenter) = @_;
 
+  my $rc = 0;
   for my $table (keys %$rules_hash) {
-     $obj->commit_rules_table($table, $rules_hash->{$table}, $pid_for_nsenter);
+     $rc += $obj->commit_rules_table($table, $rules_hash->{$table}, $pid_for_nsenter);
   }
+  return $rc;
 }
 
 sub commit_rules_table {
@@ -56,14 +58,16 @@ COMMIT
   $obj->{'_logger'}->(($obj->{'_dry_run'} ? "Dry-run, not " : ""). "commiting to $table table".($pid_for_nsenter?" via nsenter for pid $pid_for_nsenter":"").":\n$complete\n");
 
 
+  my $rc = 0;
   if(!$obj->{'_dry_run'}) {
      write_file(IPTABLES_TMP_FILE, $complete);
 
      my $cmd_prefix = $pid_for_nsenter ? "nsenter -t $pid_for_nsenter -n" : "";
-     system("$cmd_prefix iptables-restore -c --noflush ".IPTABLES_TMP_FILE);
+     $rc = system("$cmd_prefix iptables-restore -c --noflush ".IPTABLES_TMP_FILE);
 
      unlink(IPTABLES_TMP_FILE);
   }
+  return $rc;
 }
 
 

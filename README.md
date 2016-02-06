@@ -16,7 +16,7 @@ By default, a white-list based approach is recommended: the default policy drops
 
 Container aliasing is also supported; DFWFW is able to maintane some entries in /etc/hosts files of your containers with the desired aliases.
 
-DFWFW was written and tested against Docker 1.9.0.
+Docker versions supported: 1.9.0+ (including 1.10.0).
 
 DFWFW is currently experimental, feedback and contributions are welcome.
 

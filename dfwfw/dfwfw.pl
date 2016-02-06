@@ -172,12 +172,21 @@ EOF
 sub event_cb {
    my $d = shift;
 
-   mylog("Docker event: $d->{'status'} of $d->{'from'}");
+   my $event = "";
+   if(($d->{'Type'})&&($d->{'Action'})&&($d->{'Actor'})) {
+      # Docker 1.10
+      $event = $d->{'Action'};
+      mylog("Docker event: $d->{'Type'}:$d->{'Action'}: ".encode_json($d->{'Actor'})) ;
+   } else {
+      $event = $d->{'status'} || "";
+      mylog("Docker event: $d->{'status'} of $d->{'from'}");
+   }
 
-   return if($d->{'status'} !~ /^(start|die)$/);
+   return if((!$event)||($d->{'status'} !~ /^(start|die)$/));
 
-   $logger->set_key($d->{'status'}." - ".$d->{'from'});
-   mylog("Processing Docker event: $d->{'status'} of $d->{'from'}");
+   my $eventstr = $event . ($d->{'from'} ? " - ".$d->{'from'} : "");
+   $logger->set_key($eventstr);
+   mylog("Rebuilding DFWFW due to Docker event: $eventstr");
    fetch_docker_configuration();
 
    rebuild();
@@ -196,7 +205,10 @@ sub monitor_changes {
    my $api = WebService::Docker::API->new($dfwfw_conf->{'docker_socket'});
 
    $api->set_headers_callback(\&headers_cb);
+
    $api->events(\&event_cb);
+   mylog("Docker events stream ended :(");
+
 }
 
 
@@ -228,7 +240,7 @@ sub build_firewall_ruleset {
   # and the final rule just for sure.
   $rules{'filter'} .= dfwfw_rules_tail("DFWFW_FORWARD");
 
-  $iptables->commit_rules(\%rules);
+  mylog("ERROR: iptables-restore returned failure") if($iptables->commit_rules(\%rules));
 
   $dfwfw_conf->{'container_internals'}->commit($docker_info, $iptables);
 
@@ -244,11 +256,16 @@ sub parse_dfwfw_conf {
   my $safe = shift;
 
   eval {
+     my $new_start = $dfwfw_conf ? 0 : 1;
+
      my $new_dfwfw_conf = new DFWFW::Config(\&mylog);
      # success
      $dfwfw_conf = $new_dfwfw_conf;
 
      $logger->new_config($dfwfw_conf);
+
+     mylog("----------------------- DFWFW starting") if($new_start);
+
   }; 
   if($@) {
      if($safe) {
