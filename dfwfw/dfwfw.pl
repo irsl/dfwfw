@@ -206,9 +206,13 @@ sub monitor_changes {
 
    $api->set_headers_callback(\&headers_cb);
 
-   $api->events(\&event_cb);
-   mylog("Docker events stream ended :(");
+   while(1) {
+      $api->events(\&event_cb);
+      mylog("Docker events stream ended :(");
 
+      # We try to reconnect in a second. If we can't, the process will exit
+      sleep(1);
+   }
 }
 
 

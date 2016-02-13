@@ -63,6 +63,8 @@ sub get {
   my $urio = $self->_uri($uri);
   my $res = $self->{'_body_callback'} ? $self->{'_ua'}->get($urio, ':content_cb' => $cb) : $self->{'_ua'}->get($urio);
 
+  die "Docker request was unsuccessful:\n".$res->as_string if(!$res->is_success);
+
   return $self->_byRes($res);
 
 }
