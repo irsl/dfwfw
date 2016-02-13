@@ -45,6 +45,9 @@ sub parse {
   my $rule = shift;
   my $node = shift;
 
+  # specifying network is now optional and default is everything (Name =~ .*)
+  $node->{'network'} = "Name =~ .*" if(!$node->{'network'});
+
   $rule->_parse($node, "action","src_container");
 }
 

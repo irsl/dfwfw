@@ -91,13 +91,15 @@ The following keys can be specified inside `container_to_container_rule_definiti
 
 ### container_to_wider_world
 You can specify rules affecting the communication originating inside a container towards the wider world.
+As of 1.10, Docker does not offer a way to configure the default gateway. One of the connected networks will be selected randomly.
+For this reason, specifying network is optional in `container_to_wider_world` category.
 
 The following keys can be specified inside `container_to_wider_world`:
  - default_policy: see `default_policy_definition`
  - rules: array of `container_to_wider_world_rule_definition`
 
 The following keys can be specified inside `container_to_wider_world_rule_definition`:
- - network: see `network_definition`
+ - network: optional, default value is "Name =~ .*". See also `network_definition`
  - src_container: optional, see `container_definition`
  - filter: optional string, additional iptables filters like `-p tcp --dport 25`
  - action: see `action` definition
