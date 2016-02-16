@@ -1,0 +1,3 @@
+[submodule "dfwfw/WebServiceDocker"]
+	path = dfwfw/WebServiceDocker
+	url = https://github.com/irsl/WebServiceDocker
