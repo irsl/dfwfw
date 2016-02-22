@@ -272,8 +272,9 @@ sub parse_dfwfw_conf {
 
   }; 
   if($@) {
+     mylog("Syntax error in configuration file:\n$@");
      if($safe) {
-         print "Syntax error in configuration file:\n$@\n\nReverting to original config and not proceeding to firewall ruleset rebuild\n";
+         mylog("Safe mode: reverting to original config and not proceeding to firewall ruleset rebuild");
          return 0;
      }
 
