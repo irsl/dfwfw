@@ -1,3 +1,6 @@
 [submodule "dfwfw/WebServiceDocker"]
 	path = dfwfw/WebServiceDocker
 	url = https://github.com/irsl/WebServiceDocker
+[submodule "dfwfw/ConfigHostsFile"]
+	path = dfwfw/ConfigHostsFile
+	url = https://github.com/irsl/ConfigHostsFile.git
