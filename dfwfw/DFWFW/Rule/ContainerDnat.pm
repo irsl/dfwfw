@@ -59,18 +59,22 @@ sub _build_dst {
 
   my $src = [""];
   my $matching_nets = [""];
-  if($rule->{'src_container-ref'}) {
+  if($rule->{'src_network-ref'}) {
      $matching_nets = DFWFW::Filters->filter_networks_by_ref($docker_info, $rule->{'src_network-ref'});
      $self->mylog("Container dnat: number of matching src networks for rule #$rule->{'no'}: ".(scalar @$matching_nets));
 
   }
 
+     $self->mylog("HEEEEEEEEY 1");
+
   my $src_containers = 0;
   for my $src_network (@$matching_nets) {
      my $srcs = [""];
-     $srcs = DFWFW::Filters->filter_hash_by_ref($rule->{'src_container-ref'}, $src_network->{'ContainerList'}) if($src_network);
+     $srcs = DFWFW::Filters->filter_hash_by_ref($rule->{'src_container-ref'}, $src_network->{'ContainerList'}) if($rule->{'src_container-ref'});
+
 
      my $c_srcs = scalar @$srcs;
+     $self->mylog("HEEEEEEEEY 2 $c_srcs");
      if(!$c_srcs) {
          $self->mylog("Container dnat: src_container in network $src_network of rule #$rule->{'no'} does not match any containers, skipping network");
          next;
@@ -149,7 +153,7 @@ sub _parse {
 
   my @extra_keys = @_;
 
-   die "You must specify both src_network and src_container" if( (($node->{'src_container'})&&(!$node->{'src_network'})) || ((!$node->{'src_container'})&&($node->{'src_network'})));
+   die "You must specify both src_network and src_container" if(($node->{'src_container'})&&(!$node->{'src_network'}));
 
    die "Destination network is not defined" if(!$node->{'dst_network'});
    die "Destination container is not defined" if(!$node->{'dst_container'});

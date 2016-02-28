@@ -151,9 +151,10 @@ The following keys can be specified inside `container_dnat_rule_definition`:
  - src_container: optional, see `container_definition`
  - dst_network: see `network_definition`
  - dst_container: see `container_definition`
- - expose_port: optional, see `expose_port_definition`
+ - expose_port: see `expose_port_definition`
 
-In case of the source container filtering, both src_network and src_container should be defined.
+The --to-destination parameter of the iptables rules will be generated based on the destination network/container defined 
+in the actual rule.
 
 Both dst_network and dst_container should be defined and should match only one container. This latter is not enforced, 
 it just makes not too much sense if it matched many.
