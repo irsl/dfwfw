@@ -3,7 +3,7 @@
 set -e
 
 apt-get update 
-apt-get install --no-install-recommends -y libfile-slurp-perl libjson-xs-perl libwww-perl iptables ca-certificates 
+apt-get install --no-install-recommends -y libio-interface-perl libfile-slurp-perl libjson-xs-perl libwww-perl iptables ca-certificates 
 apt-get install --no-install-recommends -y build-essential cpanminus wget 
 cpanm LWP/Protocol/http/SocketUnixAlt.pm 
 apt-get remove -y build-essential cpanminus wget 

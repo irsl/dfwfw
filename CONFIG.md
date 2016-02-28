@@ -18,6 +18,14 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
  - container_internals: Container internal rules
  - container_aliases: Container aliases
 
+A simple substitution based preprocessor layer is invoked before parsing the string with the JSON object.
+It supports stripping out of comments (lines prefixed with hashmark).
+
+It also supports the following commands with the `@|key: value|` syntax:
+- including additional files, example: `@|include: /etc/dfwfw/conf.d/*.json|`
+- embedding IP address of the specified network interface, example: `@|interface_ip: eth0|`
+
+
 DFWFW tries to open this configuration file from the following location (in that order):
  - /etc/dfwfw/dfwfw.conf
  - /etc/dfwfw.conf

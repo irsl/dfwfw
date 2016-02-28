@@ -2,7 +2,8 @@ package DFWFW::Config;
 
 use strict;
 use warnings;
-use JSON::XS;
+use PreJSON;
+use IO::Interface::Simple;
 use Data::Dumper;
 use experimental 'smartmatch';
 use File::Slurp;
@@ -156,11 +157,16 @@ sub new {
     $mylog->("Parsing ruleset configuration file $config_file");
     my $contents = read_file($config_file);
 
-    # strip out comments:
-    $contents =~ s/#.*//g;
+    my $dfwfw_conf = bless PreJSON::decode($contents, sub{
+       my ($k, $v) = @_;
+       if($k eq "interface_ip") {
+          my $if1   = IO::Interface::Simple->new($v);
+          return $if1->address;
+       }
 
-    my $dfwfw_conf = bless decode_json($contents), $class;
-    $dfwfw_conf->{'_logger'}= $mylog;
+    }), $class;
+
+    $dfwfw_conf->{'_logger'} = $mylog;
 
     for my $k (keys %$dfwfw_conf) {
        $dfwfw_conf->mylog( "Unknown node in dfwfw.conf: $k" ) if($k !~ /^(initialization|log_path|log_split_by_event|docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_dnat|container_internals|container_aliases|_logger)$/);
