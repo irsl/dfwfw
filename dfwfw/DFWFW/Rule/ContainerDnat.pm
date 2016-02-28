@@ -65,8 +65,6 @@ sub _build_dst {
 
   }
 
-     $self->mylog("HEEEEEEEEY 1");
-
   my $src_containers = 0;
   for my $src_network (@$matching_nets) {
      my $srcs = [""];
@@ -74,7 +72,6 @@ sub _build_dst {
 
 
      my $c_srcs = scalar @$srcs;
-     $self->mylog("HEEEEEEEEY 2 $c_srcs");
      if(!$c_srcs) {
          $self->mylog("Container dnat: src_container in network $src_network of rule #$rule->{'no'} does not match any containers, skipping network");
          next;
