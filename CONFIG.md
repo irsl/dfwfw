@@ -196,10 +196,12 @@ The following keys can be specified inside `container_internals`:
 The following keys can be specified inside `container_alias_rule_definition`:
 
  - aliased_container: see `container_definition`. E.g. Name =~ .*nginx.*
- - alias_name: JSON string of the wanted alias (e.g. `my.nginx.alias`)
+ - alias_name: optional, JSON string of the wanted alias (e.g. `my.nginx.alias`).
+   The default value of `alias_name` is the name of the aliased container.
  - receiver_network: see `network_definition`
  - receiver_containers: see `container_definition`
 
+If alias_name` is omitted
 Hosts file in containers matching `receiver_network` + `receiver_containers`
 will be updated to have `alias_name` pointing to `aliased_container`.
 

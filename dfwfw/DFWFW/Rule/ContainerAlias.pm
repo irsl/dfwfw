@@ -17,8 +17,6 @@ sub parse {
   die "Receiver containers not specified" if(!DFWFW::Config->parse_container_ref($node, "receiver_containers"));
   die "No network specified" if(!DFWFW::Config->parse_network_ref($node, "receiver_network"));
 
-  die "Name of the alias not defined" if(!$node->{'alias_name'});
-
 }
 
 sub build {
@@ -29,7 +27,7 @@ sub build {
   my $rule = $self->{'node'};
 
 
-       my $alias_name = $rule->{'alias_name'};
+       my $alias_name = $rule->{'alias_name'} || "";
        $self->mylog("Alias wanted: $alias_name");
 
        my $cts = DFWFW::Filters->filter_hash_by_ref($rule->{'aliased_container-ref'}, $docker_info->{'container_by_name'});
@@ -39,6 +37,8 @@ sub build {
        }
 
        for my $ctname (@$cts) {
+
+           $alias_name = $rule->{'alias_name'} || $ctname;
 
            $self->mylog ("Aliased container: $ctname");
 
