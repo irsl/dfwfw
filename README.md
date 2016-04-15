@@ -31,7 +31,7 @@ docker build -t dfwfw https://github.com/irsl/dfwfw.git
 If you prefer to clone this repo manually, then don't forget about the submodules:
 
 ```
-git clone --depth 1 --recursive
+git clone --depth 1 --recursive https://github.com/irsl/dfwfw.git
 ```
 
 
