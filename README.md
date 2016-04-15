@@ -22,11 +22,18 @@ DFWFW is currently experimental, feedback and contributions are welcome.
 
 ### Installation
 DFWFW is intended to be run as a Docker container itself.
-To build:
+The recommended way to build dfwfw:
 
-  - Clone this repository
-  - Build the image by running this command in the directory of the Dockerfile:
-  - ```docker build -t dfwfw .```
+```
+docker build -t dfwfw https://github.com/irsl/dfwfw.git
+```
+
+If you prefer to clone this repo manually, then don't forget about the submodules:
+
+```
+git clone --depth 1 --recursive
+```
+
 
 The project will be published on the official Docker HUB as soon as some more thorough testing has happened.
 
