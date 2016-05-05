@@ -22,6 +22,7 @@ sub decode {
          for my $f (glob $v) {
             $re .= read_file($f);
          }
+         $re =~ s/#.*//g;  # strip out comments
          return $re || "";
      }
 
