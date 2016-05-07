@@ -2,7 +2,7 @@ package DFWFW::Config;
 
 use strict;
 use warnings;
-use PreJSON;
+use PreJSON::Parser;
 use IO::Interface::Simple;
 use Data::Dumper;
 use experimental 'smartmatch';
@@ -157,7 +157,7 @@ sub new {
     $mylog->("Parsing ruleset configuration file $config_file");
     my $contents = read_file($config_file);
 
-    my $dfwfw_conf = bless PreJSON::decode($contents, sub{
+    my $dfwfw_conf = bless PreJSON::Parser::decode($contents, sub{
        my ($k, $v) = @_;
        if($k eq "interface_ip") {
           my $if1   = IO::Interface::Simple->new($v);

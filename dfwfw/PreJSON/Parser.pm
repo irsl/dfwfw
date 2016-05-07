@@ -1,14 +1,13 @@
-package PreJSON;
+package PreJSON::Parser;
 
 use warnings;
 use strict;
 use JSON::XS;
 use File::Slurp;
 
-sub decode {
+sub _prepare {
   my $text = shift;
   my $cb = shift;
-  my $debug = shift;
 
   #strip out comments:
   $text =~ s/#.*//g;
@@ -22,7 +21,8 @@ sub decode {
          for my $f (glob $v) {
             $re .= read_file($f);
          }
-         return $re || "";
+         $re =~ s/#.*//g;
+         return $re;
      }
 
      if(defined $cb) {
@@ -33,7 +33,25 @@ sub decode {
      die "Invalid prejson key $k with value $v";
   };
 
-  $text =~ s/@\|\s*(\w+)\s*:\s*(.+?)\s*\|/$proc->($1,$2)/ge;
+  my $ac = 0;
+  while(my $c = $text =~ s/@\|\s*(\w+)\s*:\s*(.+?)\s*\|/$proc->($1,$2)/ge) {
+     $ac++;
+     die "Too many internal substitutions" if($ac > 100);
+  }
+
+  return $text;
+}
+
+sub decode {
+  my $text = shift;
+  my $cb = shift;
+  my $debug = shift;
+
+#print "x $text\n";exit;
+# $cb, $debug, y\n";
+#print "debug: $debug\n";
+
+  $text = _prepare($text, $cb);
 
   if($debug) {
      print STDERR $text;
