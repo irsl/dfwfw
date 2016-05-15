@@ -9,7 +9,7 @@ use JSON::XS;
 use Getopt::Long;
 
 BEGIN {
- push @INC, "$Bin", "$Bin/WebServiceDocker", "$Bin/ConfigHostsFile/lib", "$Bin/PreJSONParser/lib";
+ push @INC, "$Bin", "$Bin/WebServiceDocker/lib", "$Bin/ConfigHostsFile/lib", "$Bin/PreJSONParser/lib";
 }
 use WebService::Docker::API;
 use WebService::Docker::Info;
