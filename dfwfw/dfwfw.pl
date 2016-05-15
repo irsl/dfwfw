@@ -13,7 +13,6 @@ BEGIN {
 }
 use WebService::Docker::API;
 use WebService::Docker::Info;
-use Config::HostsFile;
 use DFWFW::Config;
 use DFWFW::Iptables;
 use DFWFW::Logger;

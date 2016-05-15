@@ -4,6 +4,7 @@ use parent "DFWFW::Rule::Base";
 
 use DFWFW::Config;
 use Data::Dumper;
+use Config::HostsFile;
 
 sub parse {
   my $rule = shift;
