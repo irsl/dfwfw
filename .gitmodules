@@ -4,3 +4,6 @@
 [submodule "dfwfw/ConfigHostsFile"]
 	path = dfwfw/ConfigHostsFile
 	url = https://github.com/irsl/ConfigHostsFile.git
+[submodule "dfwfw/PreJSONParser"]
+	path = dfwfw/PreJSONParser
+	url = https://github.com/irsl/PreJSONParser.git
