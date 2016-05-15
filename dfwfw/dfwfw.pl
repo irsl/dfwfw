@@ -219,7 +219,7 @@ sub monitor_changes {
 
 sub build_container_aliases {
 
-   $dfwfw_conf->{'container_aliases'}->commit($docker_info);
+   $dfwfw_conf->{'container_aliases'}->commit($docker_info, $iptables);
 
 }
 
