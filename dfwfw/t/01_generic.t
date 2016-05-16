@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use Test::MockModule;
+use Test::More;
 use FindBin qw($Bin);
 use File::Slurp;
 use Data::Dumper;
@@ -27,7 +28,7 @@ for my $test (@tests) {
   my $fulldir = "$Bin/$test";
 
   my $docker_defs = require "$fulldir/docker_definitions.pl";
-  my $description = "$test: ". read_file("$fulldir/description.txt");
+  my $description = cleanup("$test: ". read_file("$fulldir/description.txt"));
   my @commits = parse_expected_commits("$fulldir/commits.txt");
   #print Dumper(\@commits);exit;
   my $existing_chains = read_existing_chains("$fulldir/chains.txt");
@@ -79,9 +80,9 @@ for my $test (@tests) {
      return 1 if(!$expected_commit);
      #print Dumper($expected_commit);
 
-     is($table, $expected_commit->{'table'}, "Mismatching table at $description, commit: $commit_counter");
+     is($table, $expected_commit->{'table'}, "Mismatching table at $commit_counter/$description");
      is($pid_for_nsenter, $expected_commit->{'nsenter_pid'}, "Mismatching pid for nsenter at $description");
-     is(cleanup($rules), cleanup($expected_commit->{'rules'}), "Mismatching rules at $description, commit: $commit_counter");
+     is(cleanup($rules), cleanup($expected_commit->{'rules'}), "Mismatching rules at $commit_counter/$description");
 
      return 0;
   });
@@ -176,7 +177,7 @@ sub hosts_file_path {
 }
 
 
-
+=standalone mode
 sub is {
   my $got = shift;
   my $expected = shift;
@@ -198,5 +199,4 @@ sub ok {
 sub done_testing {
   print STDERR "Clean exit\n";
 }
-=standalone mode
 =cut
