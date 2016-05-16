@@ -1,0 +1,33 @@
+#Table: filter
+#nsenter_pid:
+################ DFWFW_FORWARD head:
+-F DFWFW_FORWARD
+-A DFWFW_FORWARD -m state --state INVALID -j DROP
+-A DFWFW_FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+################ DFWFW_INPUT head:
+-F DFWFW_INPUT
+
+################ container_to_container:
+# #1: from:proftpd-test to:mariadb-4
+-A DFWFW_FORWARD -i br-bdc0a1fc82ac -o br-bdc0a1fc82ac -s 172.24.0.11 -d 172.24.0.5 -p tcp --dport 3306 -m state --state NEW  -j ACCEPT
+
+
+################ container_to_host:
+-A DFWFW_INPUT -i br-62f39412f097   -j DROP
+-A DFWFW_INPUT -i br-bdc0a1fc82ac   -j DROP
+-A DFWFW_INPUT -i docker0   -j DROP
+
+
+################ DFWFW_FORWARD tail:
+-A DFWFW_FORWARD -j DROP
+
+
+##--SEPARATOR--##
+#Table: nat
+#nsenter_pid:
+################ DFWFW_PREROUTING head:
+-F DFWFW_PREROUTING
+
+
+##--SEPARATOR--##

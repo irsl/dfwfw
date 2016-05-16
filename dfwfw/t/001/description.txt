@@ -1,0 +1,1 @@
+First basic example, containing initialization rules only.

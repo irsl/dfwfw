@@ -1,0 +1,1 @@
+Mysql should be accessible for each container on the db network

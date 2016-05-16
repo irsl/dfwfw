@@ -8,6 +8,45 @@ use constant IPTABLES_TABLES => ["filter","raw","nat","mangle","security"];
 use constant IPTABLES_TMP_FILE => "/tmp/dfwfw";
 
 
+sub table_already_initiated {
+   my $class = shift;
+   my $chain = shift;
+   my $table = shift || "filter";
+   return 0 == system("iptables -n -t $table --list $chain >/dev/null 2>&1");
+}
+
+sub dfwfw_rules_head {
+  my $class = shift;
+
+  my $cat = shift;
+  my $stateful = shift;
+
+  my $re = "################ $cat head:
+-F $cat
+";
+$re.= "-A $cat -m state --state INVALID -j DROP
+-A $cat -m state --state RELATED,ESTABLISHED -j ACCEPT
+" if($stateful);
+
+  $re .= "\n";
+
+  return $re;
+}
+
+sub dfwfw_rules_tail {
+  my $class = shift;
+
+  my $cat = shift;
+  return "" if($cat eq "DFWFW_INPUT"); # exception
+
+  return "################ $cat tail:
+-A $cat -j DROP
+
+";
+}
+
+
+
 sub validate_table {
   my $class = shift;
   my $table = shift;
@@ -39,7 +78,8 @@ sub commit_rules {
   my ($obj, $rules_hash, $pid_for_nsenter) = @_;
 
   my $rc = 0;
-  for my $table (keys %$rules_hash) {
+  # we sort the keys here so unit tests can be deterministic
+  for my $table (sort keys %$rules_hash) {
      $rc += $obj->commit_rules_table($table, $rules_hash->{$table}, $pid_for_nsenter);
   }
   return $rc;

@@ -134,10 +134,8 @@ The software is free for any purposes, but no responsibility.
 
 ### TODO
 
-   - Testing, test harness
+   - More tests
    - IPv6 support
-   - Improve documentation
-
 
   
 [config_file]: <https://github.com/irsl/dfwfw/tree/master/CONFIG.md>

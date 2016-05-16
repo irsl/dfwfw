@@ -1,0 +1,1 @@
+Container to wider world rules. Proftpd is allowed to initiate connections to a wide range of ports (active connections)

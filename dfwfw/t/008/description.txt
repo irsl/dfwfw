@@ -1,0 +1,1 @@
+Container aliasing test: mariadb-4 should be added to the hosts files of the containers member in the db network as mariadb.alias

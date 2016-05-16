@@ -12,8 +12,9 @@ sub commit {
   $ruleset->build($docker_info, \%rules_to_commit);
 #  print Dumper(\%rules_to_commit);exit;
 
-  for my $ctname (keys %rules_to_commit) {
-     for my $table (keys %{$rules_to_commit{$ctname}}) {
+  # we sort the keys here, so the order of the commits will be deterministic
+  for my $ctname (sort keys %rules_to_commit) {
+     for my $table (sort keys %{$rules_to_commit{$ctname}}) {
          my $rules = $rules_to_commit{$ctname}{$table};
 
          my $pid = $docker_info->get_pid_by_container_name($ctname);

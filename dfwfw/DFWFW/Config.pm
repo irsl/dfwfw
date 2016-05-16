@@ -102,6 +102,7 @@ sub parse_expose_port {
         die "Invalid family in expose_port: $v" if(($k eq "family")&&($v !~ /^(tcp|udp)$/));
      }
      $ep->{'family'}="tcp" if(!$ep->{'family'});
+     $ep->{'container_port'}=$ep->{'host_port'} if(!$ep->{'container_port'});
   }
 
 }

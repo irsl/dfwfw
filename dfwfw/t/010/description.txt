@@ -1,0 +1,1 @@
+Container internal firewall rules test. (Mariadb wont be allowed to initate any new outgoing connections.

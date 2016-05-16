@@ -24,6 +24,8 @@ sub _build_dst_src {
      for my $s (@$srcs) {
 
        for my $ep (@$expose) {
+
+
          my $src_network_str = "";
          $src_network_str = "-i $src_network->{'BridgeName'}" if($src_network);
          $src_network_str = "! -i $dfwfw_conf->{'external_network_interface'}" if(!$src_network);

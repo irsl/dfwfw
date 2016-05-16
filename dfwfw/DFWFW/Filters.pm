@@ -49,7 +49,9 @@ sub filter_networks_by_ref {
   my $class = shift;
   my $docker_info = shift;
   my $ref = shift;
-  my @nets = values %{$docker_info->{'network_by_name'}};
+
+  # we sort the networks here, else unit tests would see non-deterministic order of trailing rules
+  my @nets = sort { $b->{'Name'} cmp $a->{'Name'} } values %{$docker_info->{'network_by_name'}};
 
   return DFWFW::Filters->filter_array_by_ref($ref, \@nets);
 }
@@ -75,7 +77,8 @@ sub filter_hash_by_ref {
   my $list = shift;
 
   my @re;
-  for my $key (keys %$list) {
+  # we are assembling an array here, so the order does matter
+  for my $key (sort keys %$list) {
      my $field = $ref->{'field'};
      ### matching hash by ref: $key
      ###  for: $field
@@ -94,8 +97,9 @@ sub filter_hash_by_sd_ref {
   my $list = shift;
 
   my @re;
-  for my $key1 (keys %$list) {
-    for my $key2 (keys %$list) {
+  # ordering should be deterministic here!
+  for my $key1 (sort keys %$list) {
+    for my $key2 (sort keys %$list) {
       next if($key1 eq $key2);
 
       my $field = $ref->{'field'};

@@ -1,0 +1,4 @@
+# table CHAIN pairs can be listed here, DFWFW will detect them when it checks for existence
+filter DFWFW_FORWARD
+nat DFWFW_POSTROUTING
+nat DFWFW_PREROUTING
