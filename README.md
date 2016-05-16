@@ -21,8 +21,13 @@ Docker versions supported: 1.9.0+ (including 1.10.0).
 DFWFW is currently experimental, feedback and contributions are welcome.
 
 ### Installation
-DFWFW is intended to be run as a Docker container itself.
-The recommended way to build dfwfw:
+DFWFW is intended to be run as a Docker container itself. The repository is linked with the Docker Hub, so the software images can be fetched the standard way:
+
+```
+docker pull irsl/dfwfw
+```
+
+The recommended way of building dfwfw manually is:
 
 ```
 docker build -t dfwfw https://github.com/irsl/dfwfw.git
@@ -34,8 +39,6 @@ If you prefer to clone this repo manually, then don't forget about the submodule
 git clone --depth 1 --recursive https://github.com/irsl/dfwfw.git
 ```
 
-
-The project will be published on the official Docker HUB as soon as some more thorough testing has happened.
 
 The tool reads the firewall rules from a JSON formatted configuration file from the location `/etc/dfwfw/dfwfw.conf`. 
 It is recommended to cross-mount this file when creating the container. The default configuration file available 
@@ -67,7 +70,7 @@ docker run \
   -v /path/to/your/directory/with/config:/etc/dfwfw/ \
   --net=host \
   --cap-add=NET_ADMIN \
-  dfwfw
+  irsl/dfwfw
 ```
 
 Where `/path/to/your/directory/with/config` should contain your configuration file, named `dfwfw.conf`.
@@ -87,7 +90,7 @@ docker run \
   --cap-add=NET_ADMIN \
   --pid=host \
   --cap-add=SYS_ADMIN \
-  dfwfw
+  irsl/dfwfw
 ```
 
 Additional prerequisites for container aliasing:
@@ -103,7 +106,7 @@ docker run \
   -v /path/to/your/directory/with/config:/etc/dfwfw/ \
   --net=host \
   --cap-add=NET_ADMIN \
-  dfwfw
+  irsl/dfwfw
 ```
 
 ### The configuration file (dfwfw.conf) and examples
