@@ -1,6 +1,6 @@
 package DFWFW::Rule::ContainerToWiderWorld;
 
-use parent "DFWFW::Rule::GenericNetwork";
+use parent "DFWFW::Rule::GenericNetworkInterface";
 
 use DFWFW::Filters;
 
@@ -15,6 +15,8 @@ sub _build_network {
 
   my $dfwfw_conf = $self->get_dfwfw_conf();
 
+  my $nifs = $rule->{"external_network_interface"} || $dfwfw_conf->{'external_network_interface'};
+
   ### c2ww rule network: $rule->{'no'}
 
   my $src = [""];
@@ -28,13 +30,17 @@ sub _build_network {
   }
 
   for my $s (@$src) {
-         my $sstr = ($s ? "-s $s" : "");
-         my $sstrcomment = ($s ? "from:".$docker_info->{'container_by_ip'}->{$s}->{'Name'} : "");
 
-         if($sstrcomment) {
-            $re->{'filter'} .= "# #$rule->{'no'}: $sstrcomment\n";
-         }
-         $re->{'filter'} .= "-A DFWFW_FORWARD -i $network->{'BridgeName'} -o $dfwfw_conf->{'external_network_interface'} $sstr $rule->{'filter'} -j $rule->{'action'}\n";
+     my $sstr = ($s ? "-s $s" : "");
+     my $sstrcomment = ($s ? "from:".$docker_info->{'container_by_ip'}->{$s}->{'Name'} : "");
+
+     if($sstrcomment) {
+        $re->{'filter'} .= "# #$rule->{'no'}: $sstrcomment\n";
+     }
+
+     for my $nif (@$nifs) {
+         $re->{'filter'} .= "-A DFWFW_FORWARD -i $network->{'BridgeName'} -o $nif $sstr $rule->{'filter'} -j $rule->{'action'}\n";
+     }
   }
 
 

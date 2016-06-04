@@ -10,3 +10,7 @@ apt-get remove -y build-essential cpanminus wget
 apt-get autoremove -y 
 rm -rf /var/lib/apt/lists/*
 mkdir /var/log/dfwfw
+
+for test in /opt/dfwfw/t/*.t ; do
+  perl "$test"
+done

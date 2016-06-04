@@ -27,8 +27,11 @@ sub _parse {
          DFWFW::Config->parse_container_ref($node, $extra);
       }elsif($extra eq "expose_port") {
          DFWFW::Config->parse_expose_port($node);
-      }elsif($extra =~ /network/) {
+      }elsif($extra =~ /network$/) {
          DFWFW::Config->parse_network_ref($node, $extra);
+      }elsif($extra =~ /external_network_interface/) {
+         $node->{"external_network_interface"} =
+               DFWFW::Config->parse_external_network_interface( $node->{"external_network_interface"} );
       } else {
          die "No parsing handler for: $extra";
       }

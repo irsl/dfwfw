@@ -28,7 +28,7 @@ sub _build_dst_src {
 
          my $src_network_str = "";
          $src_network_str = "-i $src_network->{'BridgeName'}" if($src_network);
-         $src_network_str = "! -i $dfwfw_conf->{'external_network_interface'}" if(!$src_network);
+         $src_network_str = "! -i ".$dfwfw_conf->first_external_network_interface() if(!$src_network);
          my $dst_network_str = "";
          $dst_network_str = "-o $dst_network->{'BridgeName'}" if($dst_network);
 

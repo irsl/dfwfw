@@ -25,6 +25,24 @@ my %operators = (
   "=~" => { "cmp"=> sub { return shift =~ shift; }, "build"=> sub { my $x = shift; return qr/$x/; } },
 );
 
+sub parse_external_network_interface {
+  my $dfwfw_conf_class = shift;
+  my $nif = shift;
+
+  return if(!$nif);
+
+  die "Invalid external_network_interface" if(ref($nif) !~ /^(ARRAY)?$/);
+  if(ref($nif) ne "ARRAY") {
+      $nif = [$nif];
+  }
+
+  for my $v (@$nif) {
+     die "Invalid external_network_interface: $v" if(ref($v) ne "");
+  }
+
+  return $nif;
+}
+
 
 sub parse_container_ref {
   my $dfwfw_conf_class = shift;
@@ -142,6 +160,20 @@ sub _turn_to_ruleset {
   $dfwfw_conf->mylog("$key was parsed as:\n".$ruleset->info());
 }
 
+sub first_external_network_interface {
+  my $dfwfw_conf = shift;
+  return $dfwfw_conf->{'external_network_interface'}->[0];
+}
+
+sub _validate_external_network_interface {
+  my $dfwfw_conf = shift;
+
+  $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'}); 
+
+  $dfwfw_conf->{'external_network_interface'} =
+      DFWFW::Config->parse_external_network_interface($dfwfw_conf->{'external_network_interface'});
+}
+
 sub new {
   my $class = shift;
   my $mylog = shift;
@@ -173,7 +205,7 @@ sub new {
        $dfwfw_conf->mylog( "Unknown node in dfwfw.conf: $k" ) if($k !~ /^(initialization|log_path|log_split_by_event|docker_socket|external_network_interface|container_to_container|container_to_wider_world|container_to_host|wider_world_to_container|container_dnat|container_internals|container_aliases|_logger)$/);
     }
 
-    $dfwfw_conf->{'external_network_interface'} = "eth0" if (!$dfwfw_conf->{'external_network_interface'});
+    $dfwfw_conf->_validate_external_network_interface();
 
     $dfwfw_conf->_turn_to_ruleset("initialization", new DFWFW::RuleSet::UserInit($dfwfw_conf));
 

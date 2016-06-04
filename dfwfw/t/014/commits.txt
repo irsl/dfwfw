@@ -1,0 +1,24 @@
+#Table: filter
+#nsenter_pid:
+-F DFWFW_FORWARD
+-A DFWFW_FORWARD -m state --state INVALID -j DROP
+-A DFWFW_FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+-F DFWFW_INPUT
+-A DFWFW_FORWARD -i br-62f39412f097 -o ethStr -s 172.30.0.2 -p tcp --dports 10000:65534 -j ACCEPT
+-A DFWFW_FORWARD -i br-62f39412f097 -o ethArr1 -s 172.30.0.2 -p tcp --dports 10000:65534 -j ACCEPT
+-A DFWFW_FORWARD -i br-62f39412f097 -o ethArr2 -s 172.30.0.2 -p tcp --dports 10000:65534 -j ACCEPT
+-A DFWFW_FORWARD -i br-62f39412f097 -o ethDef1 -s 172.30.0.2 -p tcp --dports 10000:65534 -j ACCEPT
+-A DFWFW_FORWARD -i br-62f39412f097 -o ethDef2 -s 172.30.0.2 -p tcp --dports 10000:65534 -j ACCEPT
+-A DFWFW_INPUT -i br-62f39412f097 -j DROP
+-A DFWFW_INPUT -i br-bdc0a1fc82ac -j DROP
+-A DFWFW_INPUT -i docker0 -j DROP
+-A DFWFW_FORWARD -j DROP
+
+##--SEPARATOR--##
+#Table: nat
+#nsenter_pid:
+################ DFWFW_PREROUTING head:
+-F DFWFW_PREROUTING
+
+
+##--SEPARATOR--##

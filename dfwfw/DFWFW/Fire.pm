@@ -156,11 +156,12 @@ EOF
    if (!DFWFW::Iptables->table_already_initiated("DFWFW_POSTROUTING", "nat")) {
      $obj->mylog("DFWFW_POSTROUTING chain not found, initializing");
 
+     my $ext_interface = $dfwfw_conf->first_external_network_interface();
      $iptables->commit_rules_table("nat", <<"EOF");
 :DFWFW_POSTROUTING - [0:0]
 -I POSTROUTING -j DFWFW_POSTROUTING
 -F DFWFW_POSTROUTING
--I DFWFW_POSTROUTING -o $dfwfw_conf->{'external_network_interface'} -j MASQUERADE
+-I DFWFW_POSTROUTING -o $ext_interface -j MASQUERADE
 EOF
 
    }

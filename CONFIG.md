@@ -8,7 +8,7 @@ The DFWFW configuration file is JSON formatted with a hash as root node, which m
    this path should be a directory, else a complete filename.
  - log_split_by_event: JSON boolean, default true. If it is turned on, DFWFW splits 
    the log files by event (for example signals, Docker container events).
- - external_network_interface: Name of the network interface with the default gateway. Default is `eth0`.
+ - external_network_interface: See `external_network_interface_definition`
  - initialization: Initial firewall rules for the host.
  - container_to_container: Container to container firewall rules
  - container_to_wider_world: Container to wider world rules
@@ -111,6 +111,7 @@ The following keys can be specified inside `container_to_wider_world_rule_defini
  - src_container: optional, see `container_definition`
  - filter: optional string, additional iptables filters like `-p tcp --dport 25`
  - action: see `action` definition
+ - external_network_interface: optional, see external_network_interface_definition
 
 Note:
 By specifying `bridge` as network, you can configure dedicated rules for build-time containers.
@@ -142,6 +143,7 @@ The following keys can be specified inside `wider_world_to_container_rule_defini
  - network: see `network_definition`
  - dst_container: see `container_definition`
  - expose_port: optional, see `expose_port_definition`
+ - external_network_interface: optional, see external_network_interface_definition
 
 ### container_dnat
 
@@ -250,6 +252,25 @@ An example:
 ```
 "container": "Name =~ ^php-\\d+"
 ```
+
+### external_network_interface_definition
+
+Refers to a (string) or an array of external network interfaces. If it is specified as an array, the first member will be used
+for setting up the masquerade rule in the nat table. 
+The default value of the top level `external_network_interface` node is `eth0`.
+The container_to_wider_world and wider_world_to_container rules will use this top level setting unless overridden in the rule
+specification.
+
+Examples:
+
+```
+"external_network_interface": "eth0"
+```
+
+```
+"external_network_interface": ["eth0","eth1"]
+```
+
 
 ### container_src_dst_definition       
 
