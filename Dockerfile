@@ -2,9 +2,7 @@ FROM debian:jessie
 
 MAINTAINER imre.rad@search-lab.hu
 
-ADD dfwfw-install /bin/
-RUN dfwfw-install
-
 ADD dfwfw /opt/dfwfw/
+RUN /opt/dfwfw/dfwfw-install
 
 ENTRYPOINT ["/opt/dfwfw/dfwfw.pl"]
