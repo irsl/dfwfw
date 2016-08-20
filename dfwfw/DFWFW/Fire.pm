@@ -107,11 +107,11 @@ sub build_firewall_ruleset {
 
   $rules{'nat'}     = DFWFW::Iptables->dfwfw_rules_head("DFWFW_PREROUTING");
 
+  $dfwfw_conf->{'container_dnat'}->build($docker_info, \%rules);
   $dfwfw_conf->{'container_to_container'}->build($docker_info, \%rules);
   $dfwfw_conf->{'container_to_wider_world'}->build($docker_info, \%rules);
   $dfwfw_conf->{'container_to_host'}->build($docker_info, \%rules);
   $dfwfw_conf->{'wider_world_to_container'}->build($docker_info, \%rules);
-  $dfwfw_conf->{'container_dnat'}->build($docker_info, \%rules);
 
   # and the final rule just for sure.
   $rules{'filter'} .= DFWFW::Iptables->dfwfw_rules_tail("DFWFW_FORWARD");

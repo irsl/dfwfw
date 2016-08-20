@@ -8,15 +8,14 @@
 ################ DFWFW_INPUT head:
 -F DFWFW_INPUT
 
+################ container_dnat:
+# #1: :53 @ ! -i eth0 -> proftpd-test:53 @ -o br-bdc0a1fc82ac / udp
+-A DFWFW_FORWARD ! -i eth0 -o br-bdc0a1fc82ac  -d 172.24.0.11 -p udp --dport 53 -j ACCEPT
+
 ################ container_to_host:
 -A DFWFW_INPUT -i br-62f39412f097   -j DROP
 -A DFWFW_INPUT -i br-bdc0a1fc82ac   -j DROP
 -A DFWFW_INPUT -i docker0   -j DROP
-
-
-################ container_dnat:
-# #1: :53 @ ! -i eth0 -> proftpd-test:53 @ -o br-bdc0a1fc82ac / udp
--A DFWFW_FORWARD ! -i eth0 -o br-bdc0a1fc82ac  -d 172.24.0.11 -p udp --dport 53 -j ACCEPT
 
 
 ################ DFWFW_FORWARD tail:
