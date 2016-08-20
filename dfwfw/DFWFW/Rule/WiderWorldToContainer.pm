@@ -26,7 +26,10 @@ sub _build_network_container_expose {
        $re->{'nat'} .= $cmnt;
        $re->{'filter'} .= $cmnt;
 
-       my $cportstr = ($ep->{'container_port'} ? ":$ep->{'container_port'}" : "");
+       my $cportstr = ($ep->{'container_port'} ? "$ep->{'container_port'}" : "");
+       $cportstr =~ s/:/-/g; # see: http://ftp.netfilter.org/pub/iptables/iptables-1.4.1-rc3/extensions/libipt_DNAT.c
+       $cportstr = ":$cportstr" if($cportstr);
+
        my $cport = ($ep->{'container_port'} ? $ep->{'container_port'} : $ep->{'host_port'});
 
        for my $nif (@$nifs) {

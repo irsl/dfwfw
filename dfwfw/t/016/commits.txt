@@ -1,0 +1,37 @@
+#Table: filter
+#nsenter_pid:
+################ DFWFW_FORWARD head:
+-F DFWFW_FORWARD
+-A DFWFW_FORWARD -m state --state INVALID -j DROP
+-A DFWFW_FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+################ DFWFW_INPUT head:
+-F DFWFW_INPUT
+
+################ container_to_host:
+-A DFWFW_INPUT -i br-62f39412f097   -j DROP
+-A DFWFW_INPUT -i br-bdc0a1fc82ac   -j DROP
+-A DFWFW_INPUT -i docker0   -j DROP
+
+
+################ wider_world_to_container:
+# #1: host:50000:51000 -> proftpd-test:50000:51000 / tcp
+-A DFWFW_FORWARD -i eth0 -o br-62f39412f097 -d 172.30.0.2 -p tcp --dport 50000:51000 -j ACCEPT
+
+
+################ DFWFW_FORWARD tail:
+-A DFWFW_FORWARD -j DROP
+
+
+##--SEPARATOR--##
+#Table: nat
+#nsenter_pid:
+################ DFWFW_PREROUTING head:
+-F DFWFW_PREROUTING
+
+################ wider_world_to_container:
+# #1: host:50000:51000 -> proftpd-test:50000:51000 / tcp
+-A DFWFW_PREROUTING -i eth0 -p tcp --dport 50000:51000  -j DNAT --to-destination 172.30.0.2:50000-51000
+
+
+##--SEPARATOR--##

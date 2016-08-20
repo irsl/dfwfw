@@ -37,8 +37,11 @@ sub _build_dst_src {
          my $sstr = "";
          $sstr = "-s $s" if($s);
 
+         my $container_port = $ep->{'container_port'};
+         $container_port =~ s/:/-/g; # see: http://ftp.netfilter.org/pub/iptables/iptables-1.4.1-rc3/extensions/libipt_DNAT.c
+
          $re->{'nat'} .= $cmnt;
-         $re->{'nat'} .= "-A DFWFW_PREROUTING $src_network_str -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$ep->{'container_port'}\n";
+         $re->{'nat'} .= "-A DFWFW_PREROUTING $src_network_str -p $ep->{'family'} --dport $ep->{'host_port'} $rule->{'filter'} -j DNAT --to-destination $d:$container_port\n";
 
          $re->{'filter'} .= $cmnt;
          $re->{'filter'} .= "-A DFWFW_FORWARD $src_network_str $dst_network_str $sstr -d $d -p $ep->{'family'} --dport $ep->{'container_port'} -j ACCEPT\n";
