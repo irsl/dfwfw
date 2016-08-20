@@ -103,7 +103,9 @@ COMMIT
      write_file(IPTABLES_TMP_FILE, $complete);
 
      my $cmd_prefix = $pid_for_nsenter ? "nsenter -t $pid_for_nsenter -n" : "";
-     $rc = system("$cmd_prefix iptables-restore -c --noflush ".IPTABLES_TMP_FILE);
+     my $cmd = "$cmd_prefix iptables-restore -c --noflush ".IPTABLES_TMP_FILE." 2>&1";
+     $rc = `$cmd`;
+     $obj->{'_logger'}->("ERROR: $rc") if($rc);
 
      unlink(IPTABLES_TMP_FILE);
   }
