@@ -97,19 +97,18 @@ COMMIT
 
   $obj->{'_logger'}->(($obj->{'_dry_run'} ? "Dry-run, not " : ""). "commiting to $table table".($pid_for_nsenter?" via nsenter for pid $pid_for_nsenter":"").":\n$complete\n");
 
-
-  my $rc = 0;
+  my $iptables_errors;
   if(!$obj->{'_dry_run'}) {
      write_file(IPTABLES_TMP_FILE, $complete);
 
      my $cmd_prefix = $pid_for_nsenter ? "nsenter -t $pid_for_nsenter -n" : "";
      my $cmd = "$cmd_prefix iptables-restore -c --noflush ".IPTABLES_TMP_FILE." 2>&1";
-     $rc = `$cmd`;
-     $obj->{'_logger'}->("ERROR: $rc") if($rc);
+     $iptables_errors = `$cmd`;
+     $obj->{'_logger'}->("ERROR: $iptables_errors") if($iptables_errors);
 
      unlink(IPTABLES_TMP_FILE);
   }
-  return $rc;
+  return $iptables_errors ? 1 : 0;
 }
 
 
