@@ -119,7 +119,7 @@ DFWFW supports the following command line switches:
 
  - `--dry-run`: No changes are commited to netfilter, they are just displayed 
    (the same way as without this option)
- - `--one-shot`: Events are not monitored, current containers are queried from the Dcoker daemon, 
+ - `--one-shot`: Events are not monitored, current containers are queried from the Docker daemon, 
    rules are generated and then the application terminates
 
 You can see whats happening by attaching to the container (or starting it in an interactive container):
