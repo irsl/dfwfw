@@ -207,15 +207,15 @@ sub new {
 
     $dfwfw_conf->_validate_external_network_interface();
 
-    $dfwfw_conf->_turn_to_ruleset("initialization", new DFWFW::RuleSet::UserInit($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("initialization", DFWFW::RuleSet::UserInit->new($dfwfw_conf));
 
-    $dfwfw_conf->_turn_to_ruleset("container_to_container", new DFWFW::RuleSet::ContainerToContainer($dfwfw_conf));
-    $dfwfw_conf->_turn_to_ruleset("container_to_wider_world", new DFWFW::RuleSet::ContainerToWiderWorld($dfwfw_conf));
-    $dfwfw_conf->_turn_to_ruleset("container_to_host", new DFWFW::RuleSet::ContainerToHost($dfwfw_conf));
-    $dfwfw_conf->_turn_to_ruleset("wider_world_to_container", new DFWFW::RuleSet::WiderWorldToContainer($dfwfw_conf));
-    $dfwfw_conf->_turn_to_ruleset("container_dnat", new DFWFW::RuleSet::ContainerDnat($dfwfw_conf));
-    $dfwfw_conf->_turn_to_ruleset("container_internals", new DFWFW::RuleSet::ContainerInternal($dfwfw_conf));
-    $dfwfw_conf->_turn_to_ruleset("container_aliases", new DFWFW::RuleSet::ContainerAlias($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("container_to_container", DFWFW::RuleSet::ContainerToContainer->new($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("container_to_wider_world", DFWFW::RuleSet::ContainerToWiderWorld->new($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("container_to_host", DFWFW::RuleSet::ContainerToHost->new($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("wider_world_to_container", DFWFW::RuleSet::WiderWorldToContainer->new($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("container_dnat", DFWFW::RuleSet::ContainerDnat->new($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("container_internals", DFWFW::RuleSet::ContainerInternal->new($dfwfw_conf));
+    $dfwfw_conf->_turn_to_ruleset("container_aliases", DFWFW::RuleSet::ContainerAlias->new($dfwfw_conf));
 
   return $dfwfw_conf;
 }

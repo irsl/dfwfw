@@ -50,7 +50,7 @@ sub fetch_docker_configuration {
     ?
     1 : 0;
 
-  $obj->{'_docker_info'} = new WebService::Docker::Info($dfwfw_conf->{'docker_socket'}, $extra_info_needed);
+  $obj->{'_docker_info'} = WebService::Docker::Info->new($dfwfw_conf->{'docker_socket'}, $extra_info_needed);
 
 }
 
