@@ -72,7 +72,7 @@ sub build {
 
                   if(!defined($host_files->{$receiver_name})) {
                       $self->mylog("Opening hosts file $hosts_file for $receiver_name");
-                      $host_files->{$receiver_name} = new Config::HostsFile($hosts_file);
+                      $host_files->{$receiver_name} = Config::HostsFile->new($hosts_file);
                   }
 
                   $host_files->{$receiver_name}->update_host($alias_name, $alias_ip);

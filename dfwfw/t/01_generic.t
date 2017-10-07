@@ -108,9 +108,9 @@ for my $test (@tests) {
      }
   });
 
-  my $dfwfw_conf = new DFWFW::Config(\&mylog, "$fulldir/dfwfw.conf");
-  my $iptables = new DFWFW::Iptables(\&mylog, 1);
-  my $fire = new DFWFW::Fire(\&mylog, $iptables);
+  my $dfwfw_conf = DFWFW::Config->new(\&mylog, "$fulldir/dfwfw.conf");
+  my $iptables = DFWFW::Iptables->new(\&mylog, 1);
+  my $fire = DFWFW::Fire->new(\&mylog, $iptables);
   $fire->new_config($dfwfw_conf);
 
   $fire->init_dfwfw_rules();

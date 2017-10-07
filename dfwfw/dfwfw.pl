@@ -29,9 +29,9 @@ my ($c_dry_run, $c_one_shot) = (0, 0);
 
 
 my $dfwfw_conf;
-my $iptables = new DFWFW::Iptables(\&mylog, $c_dry_run);
-my $fire = new DFWFW::Fire(\&mylog, $iptables);
-my $logger = new DFWFW::Logger();
+my $iptables = DFWFW::Iptables->new(\&mylog, $c_dry_run);
+my $fire = DFWFW::Fire->new(\&mylog, $iptables);
+my $logger = DFWFW::Logger->new();
 
 
 my $docker_info;
@@ -139,7 +139,7 @@ sub parse_dfwfw_conf {
   eval {
      my $new_start = $dfwfw_conf ? 0 : 1;
 
-     my $new_dfwfw_conf = new DFWFW::Config(\&mylog);
+     my $new_dfwfw_conf = DFWFW::Config->new(\&mylog);
      # success
      $dfwfw_conf = $new_dfwfw_conf;
 
