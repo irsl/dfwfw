@@ -1,3 +1,9 @@
+# DFWFW is deprecated
+
+Due to lack of time and motiviation, I can't support this project anymore (read: issues opened here won't receive a response). You might want to take a look on the following port instead:
+
+https://github.com/pitkley/dfw
+
 # DFWFW
 
 DFWFW, short of Docker Firewall Framework, is a light-weight Perl tool which offers easy administration of the iptables rules of your Docker containers. It reads the event stream of the local Docker daemon so it gets notified of happenings around the containers real-time and is able to maintain the firewall rules on the fly.
